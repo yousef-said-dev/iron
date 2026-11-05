@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>3D Roller Shutter Door</title>
+<style>
+:root{--ink:#eceae6;--panel:rgba(18,20,24,.72);box-sizing:border-box}
+*{box-sizing:border-box;margin:0}
+html,body{background:#141922;color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.spacer{height:700vh}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+.hint{position:fixed;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom,0px));text-align:center;font-size:14px;z-index:5;pointer-events:none;text-shadow:0 1px 6px #000}
+.skip{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:14px;z-index:6;background:var(--panel);color:var(--ink);border:1px solid rgba(255,255,255,.25);padding:8px 14px;border-radius:8px;cursor:pointer;backdrop-filter:blur(6px)}
+.sr{position:absolute;left:-9999px}
+.err{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:30px;text-align:center;z-index:9}
+</style>
+</head>
+<body>
+<button class="skip" id="skip">Skip intro</button>
+<div class="spacer"></div>
+<div class="hint" id="hint">Scroll to open the door ↓</div>
+<div class="err" id="err">Your device does not support WebGL. Please open this page in a newer browser.</div>
+<ul class="sr"><li>Rebar</li><li>Steel pipes</li><li>I-beams</li><li>Steel sheets</li><li>Angle iron</li><li>Wire coils</li></ul>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+var W=6,H=5,N=44,BARH=0.26,HS=(H-BARH)/N,R=0.32,SPIRAL=0.012;
+var renderer;
+try{renderer=new THREE.WebGLRenderer({antialias:true});}catch(e){document.getElementById('err').style.display='flex';return;}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.15;
+document.body.insertBefore(renderer.domElement,document.body.firstChild);
+
+var scene=new THREE.Scene();
+scene.background=new THREE.Color(0x1a2230);
+scene.fog=new THREE.Fog(0x1a2230,30,80);
+var camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,120);
+
+/* ---------- reflections: a small studio-like environment ---------- */
+(function(){
+  var es=new THREE.Scene();
+  var c=document.createElement('canvas');c.width=4;c.height=256;var x=c.getContext('2d');
+  var g=x.createLinearGradient(0,0,0,256);g.addColorStop(0,'#8fa6c0');g.addColorStop(.5,'#3a4452');g.addColorStop(1,'#14161a');
+  x.fillStyle=g;x.fillRect(0,0,4,256);
+  es.add(new THREE.Mesh(new THREE.SphereGeometry(40,24,12),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),side:THREE.BackSide})));
+  for(var i=0;i<7;i++){
+    var m=new THREE.MeshBasicMaterial({side:THREE.DoubleSide});m.color.setScalar(9);
+    var p=new THREE.Mesh(new THREE.PlaneGeometry(16,1.4),m);
+    p.position.set(Math.cos(i)*12,10+i%3*2,Math.sin(i)*12);p.lookAt(0,0,0);es.add(p);
+  }
+  var pm=new THREE.PMREMGenerator(renderer);
+  scene.environment=pm.fromScene(es,0.03).texture;
+})();
+
+/* ---------- helpers ---------- */
+function noiseTex(base,rx,ry,dark){
+  var c=document.createElement('canvas');c.width=c.height=256;var x=c.getContext('2d');
+  x.fillStyle=base;x.fillRect(0,0,256,256);
+  for(var i=0;i<3000;i++){var v=Math.random()<.5?(dark?0:255):128;x.fillStyle='rgba('+v+','+v+','+v+',.07)';x.fillRect(Math.random()*256,Math.random()*256,Math.random()*4+1,Math.random()*4+1);}
+  var t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(rx,ry);t.encoding=THREE.sRGBEncoding;return t;
+}
+function label(txt,w,h,fs){
+  var c=document.createElement('canvas');c.width=512;c.height=Math.round(512*h/w);var x=c.getContext('2d');
+  x.fillStyle='rgba(14,16,20,.85)';x.fillRect(0,0,c.width,c.height);
+  x.strokeStyle='#d9622b';x.lineWidth=6;x.strokeRect(5,5,c.width-10,c.height-10);
+  x.fillStyle='#f2efe8';x.font='bold '+fs+'px system-ui,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(txt,c.width/2,c.height/2+2);
+  var t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t;
+}
+function mat(color,m,r,extra){var o={color:color,metalness:m,roughness:r};for(var k in extra)o[k]=extra[k];return new THREE.MeshStandardMaterial(o);}
+function box(w,h,d,m,x,y,z){var b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);b.position.set(x||0,y||0,z||0);return b;}
+
+var steel=mat(0xbcc4ca,0.92,0.34);
+var darkSteel=mat(0x2c3035,0.8,0.5);
+var concrete=mat(0xffffff,0,0.95,{map:noiseTex('#8d9094',6,2,true)});
+var asphalt=mat(0xffffff,0,0.98,{map:noiseTex('#2a2d31',12,12,false)});
+var epoxy=mat(0x4b5158,0.2,0.45);
+
+/* ---------- building ---------- */
+var wallMat=mat(0xffffff,0,0.95,{map:noiseTex('#9a9c9f',3,2,true)});
+var pierW=7,wallH=8.5;
+[-1,1].forEach(function(s){scene.add(box(pierW,wallH,1.2,wallMat,s*(W/2+pierW/2),wallH/2,-0.4));});
+scene.add(box(W,wallH-(H+1),1.2,wallMat,0,H+1+(wallH-H-1)/2,-0.4));   // lintel
+scene.add(box(W,1,0.1,darkSteel,0,H+0.5,-0.95));                          // dark back of the roller cavity
+// sign on the lintel
+var sign=new THREE.Mesh(new THREE.PlaneGeometry(5.4,1.5),new THREE.MeshStandardMaterial({map:label('IRON WORKS · STEEL SHOP',5.4,1.5,46),roughness:.6,metalness:.1}));
+sign.position.set(0,H+1+1.2,0.21);scene.add(sign);
+// guide rails
+[-1,1].forEach(function(s){
+  scene.add(box(0.24,H+1,0.34,darkSteel,s*(W/2+0.06),(H+1)/2,0));
+  for(var i=0;i<9;i++){var b=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.04,8),steel);b.rotation.x=Math.PI/2;b.position.set(s*(W/2+0.06),0.4+i*0.55,0.19);scene.add(b);}
+});
+// roller drum core + end plates
+var core=new THREE.Mesh(new THREE.CylinderGeometry(R-0.05,R-0.05,W+0.1,24),darkSteel);core.rotation.z=Math.PI/2;core.position.set(0,H,-R);scene.add(core);
+[-1,1].forEach(function(s){var d=new THREE.Mesh(new THREE.CylinderGeometry(0.78,0.78,0.07,28),darkSteel);d.rotation.z=Math.PI/2;d.position.set(s*(W/2+0.1),H,-R);scene.add(d);});
+// ground outside + hall inside
+var ground=new THREE.Mesh(new THREE.PlaneGeometry(70,50),asphalt);ground.rotation.x=-Math.PI/2;ground.position.set(0,0,24);scene.add(ground);
+var hall=new THREE.Mesh(new THREE.BoxGeometry(18,wallH,24),concrete);hall.material.side=THREE.BackSide;hall.position.set(0,wallH/2,-13);scene.add(hall);
+var floor=new THREE.Mesh(new THREE.PlaneGeometry(18,24),epoxy);floor.rotation.x=-Math.PI/2;floor.position.set(0,0.01,-13);scene.add(floor);
+// ceiling light strips
+var lamp=new THREE.MeshStandardMaterial({color:0x222222,emissive:0xffe6b8,emissiveIntensity:2.2});
+[-3,3].forEach(function(x){scene.add(box(0.3,0.08,20,lamp,x,wallH-0.1,-13));});
+
+/* ---------- lights ---------- */
+scene.add(new THREE.HemisphereLight(0xbfd0e0,0x1a1a1a,0.45));
+var spot=new THREE.SpotLight(0xffe2b0,2.2,30,0.8,0.6);spot.position.set(0,H+3,7);spot.target.position.set(0,H/2,0);scene.add(spot,spot.target);
+for(var i=0;i<4;i++){var pl=new THREE.PointLight(0xffe2b0,1.3,18,2);pl.position.set(0,7.2,-4-i*5.5);scene.add(pl);}
+
+/* ---------- the shutter ---------- */
+var slatGeo=(function(){
+  var t=0.06,hh=HS*0.5-0.004,sh=new THREE.Shape();
+  sh.moveTo(t/2,-hh);sh.lineTo(t/2,hh);sh.quadraticCurveTo(-t*1.6,0,t/2,-hh);
+  var g=new THREE.ExtrudeGeometry(sh,{depth:W,bevelEnabled:false,curveSegments:10});
+  g.translate(0,0,-W/2);g.rotateY(Math.PI/2);return g;
+})();
+var parts=[];
+for(var i=0;i<N;i++){var m=new THREE.Mesh(slatGeo,steel);scene.add(m);parts.push({m:m,u:(i+0.5)*HS});}
+var bar=new THREE.Group();
+bar.add(box(W+0.04,BARH,0.12,darkSteel,0,0,0.02));
+bar.add(box(0.2,0.13,0.06,mat(0xcaa84a,0.9,0.35),0,0,0.1));
+bar.add(box(0.34,0.06,0.05,steel,-1.7,0,0.1));
+scene.add(bar);parts.push({m:bar,u:H-BARH/2});
+
+function openDoor(O){
+  for(var i=0;i<parts.length;i++){
+    var p=parts[i],s=O-p.u;
+    if(s<=0){p.m.position.set(0,H-p.u+O,0);p.m.rotation.x=0;}
+    else{
+      var phi=(-R+Math.sqrt(R*R+2*SPIRAL*s))/SPIRAL,r=R+SPIRAL*phi;
+      p.m.position.set(0,H+r*Math.sin(phi),-R+r*Math.cos(phi));p.m.rotation.x=-phi;
+    }
+  }
+}
+
+/* ---------- products (built from simple shapes, no model files) ---------- */
+var wood=mat(0x8a6a42,0,0.9);
+function pallet(){var g=new THREE.Group();g.add(box(1.6,0.14,2.9,wood,0,0.07,0));return g;}
+function rebar(){var g=pallet(),m=mat(0x4a4038,0.6,0.6);
+  for(var r=0;r<3;r++)for(var c=0;c<5-r;c++){var b=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,2.8,8),m);b.rotation.x=Math.PI/2;b.position.set((c-(4-r)/2)*0.09,0.2+r*0.08,0);g.add(b);}
+  for(var q=0;q<2;q++)for(var c2=0;c2<5;c2++){var b2=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,2.8,8),m);b2.rotation.x=Math.PI/2;b2.position.set((c2-2)*0.09,0.38+q*0.07,0);}
+  return g;}
+function pipes(){var g=pallet(),m=mat(0xaab2b8,0.9,0.4,{side:THREE.DoubleSide}),rad=0.16,row=[4,3,2];
+  row.forEach(function(n,r){for(var c=0;c<n;c++){var b=new THREE.Mesh(new THREE.CylinderGeometry(rad,rad,2.8,20,1,true),m);b.rotation.x=Math.PI/2;b.position.set((c-(n-1)/2)*rad*2.1,0.14+rad+r*rad*1.8,0);g.add(b);}});return g;}
+function ibeams(){var g=pallet(),m=mat(0x35495e,0.6,0.45);
+  [-0.4,0.4].forEach(function(x){[0,1].forEach(function(l){var y=0.3+l*0.5;
+    g.add(box(0.4,0.04,2.8,m,x,y-0.18,0));g.add(box(0.4,0.04,2.8,m,x,y+0.18,0));g.add(box(0.04,0.36,2.8,m,x,y,0));});});return g;}
+function sheets(){var g=pallet();for(var i=0;i<9;i++)g.add(box(1.4,0.03,2.7,steel,(Math.random()-.5)*0.04,0.17+i*0.04,(Math.random()-.5)*0.04));return g;}
+function angles(){var g=pallet(),m=mat(0x9aa2a8,0.85,0.45);
+  for(var r=0;r<2;r++)for(var c=0;c<4;c++){var x=(c-1.5)*0.3,y=0.2+r*0.12;g.add(box(0.14,0.015,2.8,m,x,y,0));g.add(box(0.015,0.14,2.8,m,x-0.06,y+0.06,0));}return g;}
+function coils(){var g=pallet(),m=mat(0x6b7075,0.75,0.5);
+  [-0.8,0.8].forEach(function(z){for(var i=0;i<2;i++){var t=new THREE.Mesh(new THREE.TorusGeometry(0.5,0.17,14,30),m);t.rotation.x=Math.PI/2;t.position.set(0,0.25+i*0.34,z);g.add(t);}});return g;}
+var defs=[[-1,-6,'REBAR',rebar],[1,-6,'STEEL PIPES',pipes],[-1,-11.5,'I-BEAMS',ibeams],[1,-11.5,'STEEL SHEETS',sheets],[-1,-17,'WIRE COILS',coils],[1,-17,'ANGLE IRON',angles]];
+defs.forEach(function(d){
+  var g=d[3]();g.scale.setScalar(1.5);g.position.set(d[0]*4.3,0,d[1]);scene.add(g);
+  var sp=new THREE.Sprite(new THREE.SpriteMaterial({map:label(d[2],2.4,0.6,64),transparent:true,fog:false}));
+  sp.scale.set(2.6,0.65,1);sp.position.set(d[0]*4.3,2.7,d[1]);scene.add(sp);
+});
+
+/* ---------- scroll + camera ---------- */
+function clamp(v,a,b){return Math.min(b,Math.max(a,v));}
+function ease(t){return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;}
+var target=0,cur=-1,mx=0,my=0,yaw=0,pitch=0,dirty=true;
+function readScroll(){var m=document.documentElement.scrollHeight-innerHeight;target=m>0?clamp(scrollY/m,0,1):0;}
+addEventListener('scroll',readScroll,{passive:true});readScroll();
+addEventListener('pointermove',function(e){mx=e.clientX/innerWidth*2-1;my=e.clientY/innerHeight*2-1;});
+addEventListener('resize',function(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);dirty=true;});
+document.getElementById('skip').addEventListener('click',function(){scrollTo({top:document.documentElement.scrollHeight,behavior:'smooth'});});
+var hint=document.getElementById('hint');
+
+function frame(){
+  requestAnimationFrame(frame);
+  var dp=target-cur;
+  var ty=mx*(0.1+0.8*ease(clamp((cur-0.5)/0.2,0,1))),tp=-my*0.2;
+  var moving=Math.abs(dp)>0.0002||Math.abs(ty-yaw)>0.0005||Math.abs(tp-pitch)>0.0005;
+  if(!moving&&!dirty)return;
+  dirty=false;
+  cur+=dp*0.07;yaw+=(ty-yaw)*0.06;pitch+=(tp-pitch)*0.06;
+  var pd=clamp(cur/0.5,0,1),pw=ease(clamp((cur-0.45)/0.55,0,1));
+  openDoor(ease(pd)*(H+0.4));
+  var z=9-2*pd-18*pw;
+  camera.position.set(0,2.3+0.05*Math.sin(pw*40),z);
+  camera.lookAt(Math.sin(yaw)*10,2.3+Math.sin(pitch)*10,z-Math.cos(yaw)*10);
+  hint.style.opacity=cur<0.02?1:(cur>0.9?1:0);
+  hint.textContent=cur>0.9?'Move your mouse to look around · scroll up to close the door':'Scroll to open the door ↓';
+  renderer.render(scene,camera);
+}
+frame();
+})();
+</script>
+</body>
+</html>
