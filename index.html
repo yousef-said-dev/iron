@@ -1,293 +1,106 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>3D Roller Shutter Door</title>
-<style>
-:root{--ink:#eceae6;--panel:rgba(18,20,24,.72);box-sizing:border-box}
-*{box-sizing:border-box;margin:0}
-html,body{background:#141922;color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
-.spacer{height:700vh}
-canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
-.hint{position:fixed;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom,0px));text-align:center;font-size:14px;z-index:5;pointer-events:none;text-shadow:0 1px 6px #000}
-.skip{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:14px;z-index:6;background:var(--panel);color:var(--ink);border:1px solid rgba(255,255,255,.25);padding:8px 14px;border-radius:8px;cursor:pointer;backdrop-filter:blur(6px)}
-.sr{position:absolute;left:-9999px}
-.err{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:30px;text-align:center;z-index:9}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>معرض ومنتجات مصنع ورشة الحديد والصلب · ثلاثي الأبعاد</title>
+  
+  <!-- خط كيرو العربي المتناسق والمناسب للتطبيقات الصناعية -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<button class="skip" id="skip">Skip intro</button>
-<div class="spacer"></div>
-<div class="hint" id="hint">Scroll to open the door ↓</div>
-<div class="err" id="err">Your device does not support WebGL. Please open this page in a newer browser.</div>
-<ul class="sr"><li>Rebar</li><li>Steel pipes</li><li>I-beams</li><li>Steel sheets</li><li>Angle iron</li><li>Wire coils</li></ul>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
-(function(){
-var W=6,H=5,N=44,BARH=0.26,HS=(H-BARH)/N,R=0.32,SPIRAL=0.012;
-var renderer;
-/* FIX 1: antialias is redundant on high-DPR screens — the pixel density
-   already provides sub-pixel AA, so enabling MSAA there doubles the
-   rasterisation buffer for no perceptible gain. */
-var dpr=window.devicePixelRatio;
-try{renderer=new THREE.WebGLRenderer({antialias:dpr<2});}catch(e){document.getElementById('err').style.display='flex';return;}
-renderer.setPixelRatio(Math.min(dpr,2));
-renderer.setSize(innerWidth,innerHeight);
-renderer.outputEncoding=THREE.sRGBEncoding;
-renderer.toneMapping=THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure=1.15;
-document.body.insertBefore(renderer.domElement,document.body.firstChild);
+  <!-- زر تخطي الحركة الافتتاحية والنزول مباشرة للمعرض -->
+  <button class="skip" id="skip" type="button">تخطي البداية</button>
 
-var scene=new THREE.Scene();
-scene.background=new THREE.Color(0x1a2230);
-scene.fog=new THREE.Fog(0x1a2230,30,80);
-var camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,120);
+  <!-- مسافة التمرير العمودي لفتح البوابة والنزول بالرافعة -->
+  <div class="spacer"></div>
 
-/* ---------- reflections: a small studio-like environment ---------- */
-(function(){
-  var es=new THREE.Scene();
-  var c=document.createElement('canvas');c.width=4;c.height=256;var x=c.getContext('2d');
-  var g=x.createLinearGradient(0,0,0,256);g.addColorStop(0,'#8fa6c0');g.addColorStop(.5,'#3a4452');g.addColorStop(1,'#14161a');
-  x.fillStyle=g;x.fillRect(0,0,4,256);
-  es.add(new THREE.Mesh(new THREE.SphereGeometry(40,24,12),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),side:THREE.BackSide})));
-  for(var i=0;i<7;i++){
-    var m=new THREE.MeshBasicMaterial({side:THREE.DoubleSide});m.color.setScalar(9);
-    var p=new THREE.Mesh(new THREE.PlaneGeometry(16,1.4),m);
-    p.position.set(Math.cos(i)*12,10+i%3*2,Math.sin(i)*12);p.lookAt(0,0,0);es.add(p);
-  }
-  var pm=new THREE.PMREMGenerator(renderer);
-  scene.environment=pm.fromScene(es,0.03).texture;
-  /* FIX 2: dispose the generator (holds internal GL shaders/framebuffers)
-     and every geometry/material in the env scene — none are needed after
-     the PMREM cube-map has been baked. */
-  pm.dispose();
-  es.traverse(function(obj){if(obj.geometry)obj.geometry.dispose();if(obj.material)obj.material.dispose();});
-})();
+  <!-- تلميحات الإرشاد والحالة أسفل الشاشة -->
+  <div class="hint" id="hint">قم بالتمرير للأسفل لفتح البوابة والنزول للمعرض ↓</div>
 
-/* ---------- helpers ---------- */
-function noiseTex(base,rx,ry,dark){
-  var c=document.createElement('canvas');c.width=c.height=256;var x=c.getContext('2d');
-  x.fillStyle=base;x.fillRect(0,0,256,256);
-  for(var i=0;i<3000;i++){var v=Math.random()<.5?(dark?0:255):128;x.fillStyle='rgba('+v+','+v+','+v+',.07)';x.fillRect(Math.random()*256,Math.random()*256,Math.random()*4+1,Math.random()*4+1);}
-  var t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(rx,ry);t.encoding=THREE.sRGBEncoding;return t;
-}
-function label(txt,w,h,fs){
-  var c=document.createElement('canvas');c.width=512;c.height=Math.round(512*h/w);var x=c.getContext('2d');
-  x.fillStyle='rgba(14,16,20,.85)';x.fillRect(0,0,c.width,c.height);
-  x.strokeStyle='#d9622b';x.lineWidth=6;x.strokeRect(5,5,c.width-10,c.height-10);
-  x.fillStyle='#f2efe8';x.font='bold '+fs+'px system-ui,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(txt,c.width/2,c.height/2+2);
-  var t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t;
-}
-function mat(color,m,r,extra){var o={color:color,metalness:m,roughness:r};for(var k in extra)o[k]=extra[k];return new THREE.MeshStandardMaterial(o);}
-function box(w,h,d,m,x,y,z){var b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);b.position.set(x||0,y||0,z||0);return b;}
+  <!-- رسالة خطأ عند عدم دعم المتصفح لـ WebGL -->
+  <div class="err" id="err">متصفحك أو جهازك الحالي لا يدعم تقنية WebGL ثلاثية الأبعاد. يرجى فتح الصفحة في متصفح حديث مثل Chrome أو Safari أو Edge.</div>
 
-var steel=mat(0xbcc4ca,0.92,0.34);
-var darkSteel=mat(0x2c3035,0.8,0.5);
-var concrete=mat(0xffffff,0,0.95,{map:noiseTex('#8d9094',6,2,true)});
-var asphalt=mat(0xffffff,0,0.98,{map:noiseTex('#2a2d31',12,12,false)});
-var epoxy=mat(0x4b5158,0.2,0.45);
+  <!-- تلميح المؤشر عند الاقتراب من المنتجات أو الميزان -->
+  <div class="pick-hint" id="pickHint"></div>
 
-/* ---------- building ---------- */
-var wallMat=mat(0xffffff,0,0.95,{map:noiseTex('#9a9c9f',3,2,true)});
-var pierW=7,wallH=8.5;
-[-1,1].forEach(function(s){scene.add(box(pierW,wallH,1.2,wallMat,s*(W/2+pierW/2),wallH/2,-0.4));});
-scene.add(box(W,wallH-(H+1),1.2,wallMat,0,H+1+(wallH-H-1)/2,-0.4));   // lintel
-scene.add(box(W,1,0.1,darkSteel,0,H+0.5,-0.95));                          // dark back of the roller cavity
-// sign on the lintel
-var sign=new THREE.Mesh(new THREE.PlaneGeometry(5.4,1.5),new THREE.MeshStandardMaterial({map:label('IRON WORKS · STEEL SHOP',5.4,1.5,46),roughness:.6,metalness:.1}));
-sign.position.set(0,H+1+1.2,0.21);scene.add(sign);
-// guide rails
-/* FIX 3: one shared CylinderGeometry for all 18 identical rail bolts —
-   previously each bolt allocated its own GPU buffer with the same data. */
-var boltGeo=new THREE.CylinderGeometry(0.035,0.035,0.04,8);
-[-1,1].forEach(function(s){
-  scene.add(box(0.24,H+1,0.34,darkSteel,s*(W/2+0.06),(H+1)/2,0));
-  for(var i=0;i<9;i++){var b=new THREE.Mesh(boltGeo,steel);b.rotation.x=Math.PI/2;b.position.set(s*(W/2+0.06),0.4+i*0.55,0.19);scene.add(b);}
-});
-// roller drum core + end plates
-var core=new THREE.Mesh(new THREE.CylinderGeometry(R-0.05,R-0.05,W+0.1,24),darkSteel);core.rotation.z=Math.PI/2;core.position.set(0,H,-R);scene.add(core);
-[-1,1].forEach(function(s){var d=new THREE.Mesh(new THREE.CylinderGeometry(0.78,0.78,0.07,28),darkSteel);d.rotation.z=Math.PI/2;d.position.set(s*(W/2+0.1),H,-R);scene.add(d);});
-// ground outside + hall inside
-var ground=new THREE.Mesh(new THREE.PlaneGeometry(70,50),asphalt);ground.rotation.x=-Math.PI/2;ground.position.set(0,0,24);scene.add(ground);
-var hall=new THREE.Mesh(new THREE.BoxGeometry(18,wallH,24),concrete);hall.material.side=THREE.BackSide;hall.position.set(0,wallH/2,-13);scene.add(hall);
-var floor=new THREE.Mesh(new THREE.PlaneGeometry(18,24),epoxy);floor.rotation.x=-Math.PI/2;floor.position.set(0,0.01,-13);scene.add(floor);
-// ceiling light strips
-var lamp=new THREE.MeshStandardMaterial({color:0x222222,emissive:0xffe6b8,emissiveIntensity:2.2});
-[-3,3].forEach(function(x){scene.add(box(0.3,0.08,20,lamp,x,wallH-0.1,-13));});
+  <!-- طبقة التظليل السينمائي المحيطي -->
+  <div class="vignette"></div>
 
-/* ---------- lights ---------- */
-scene.add(new THREE.HemisphereLight(0xbfd0e0,0x1a1a1a,0.45));
-var spot=new THREE.SpotLight(0xffe2b0,2.2,30,0.8,0.6);spot.position.set(0,H+3,7);spot.target.position.set(0,H/2,0);scene.add(spot,spot.target);
-for(var i=0;i<4;i++){var pl=new THREE.PointLight(0xffe2b0,1.3,18,2);pl.position.set(0,7.2,-4-i*5.5);scene.add(pl);}
+  <!-- نافذة معاينة وفحص المنتج وتحديد الكمية -->
+  <div class="focus-ui" id="focusUI" aria-hidden="true">
+    <div class="focus-block" id="focusBlock"></div>
+    <section class="focus-panel" role="dialog" aria-modal="true" aria-labelledby="focusTitle">
+      <button class="focus-close" id="focusClose" type="button" aria-label="إغلاق والعودة للصالة">×</button>
+      <div class="focus-kicker" id="focusKicker">منتج معتمد</div>
+      <h2 id="focusTitle">اسم المنتج</h2>
+      <p class="focus-desc" id="focusDesc"></p>
+      <div class="focus-specs" id="focusSpecs"></div>
 
-/* ---------- the shutter ---------- */
-var slatGeo=(function(){
-  var t=0.06,hh=HS*0.5-0.004,sh=new THREE.Shape();
-  sh.moveTo(t/2,-hh);sh.lineTo(t/2,hh);sh.quadraticCurveTo(-t*1.6,0,t/2,-hh);
-  var g=new THREE.ExtrudeGeometry(sh,{depth:W,bevelEnabled:false,curveSegments:10});
-  g.translate(0,0,-W/2);g.rotateY(Math.PI/2);return g;
-})();
-var parts=[];
-for(var i=0;i<N;i++){var m=new THREE.Mesh(slatGeo,steel);scene.add(m);parts.push({m:m,u:(i+0.5)*HS});}
-/* FIX 4: hoist the lock-square material so it is a named, trackable object
-   instead of an anonymous inline mat() call. */
-var lockMat=mat(0xcaa84a,0.9,0.35);
-var bar=new THREE.Group();
-bar.add(box(W+0.04,BARH,0.12,darkSteel,0,0,0.02));
-bar.add(box(0.2,0.13,0.06,lockMat,0,0,0.1));
-bar.add(box(0.34,0.06,0.05,steel,-1.7,0,0.1));
-scene.add(bar);parts.push({m:bar,u:H-BARH/2});
+      <div class="focus-buyrow">
+        <label for="focusQty">الكمية المطلوبة:</label>
+        <input id="focusQty" type="number" min="1" max="99" step="1" value="1" inputmode="numeric">
+        <span class="focus-total" id="focusTotal">$0.00</span>
+      </div>
 
-/* FIX 5: skip the 45-part trig loop entirely when the door position has
-   not changed since the last frame (threshold: 0.1 mm in world units). */
-var lastDoorO=-999;
-function openDoor(O){
-  if(Math.abs(O-lastDoorO)<0.0001)return;
-  lastDoorO=O;
-  for(var i=0;i<parts.length;i++){
-    var p=parts[i],s=O-p.u;
-    if(s<=0){p.m.position.set(0,H-p.u+O,0);p.m.rotation.x=0;}
-    else{
-      var phi=(-R+Math.sqrt(R*R+2*SPIRAL*s))/SPIRAL,r=R+SPIRAL*phi;
-      p.m.position.set(0,H+r*Math.sin(phi),-R+r*Math.cos(phi));p.m.rotation.x=-phi;
-    }
-  }
-}
+      <div class="focus-actions">
+        <button class="primary" id="focusBuy" type="button">شراء ووضع على الميزان</button>
+        <button id="focusReturn" type="button">العودة للمعرض</button>
+      </div>
 
-/* ---------- products (built from simple shapes, no model files) ---------- */
-/* FIX 6: hoist all product materials to module scope.
-   Previously each builder function called mat() internally, creating a
-   fresh MeshStandardMaterial (and GPU program) on every invocation.
-   Now every product of the same type shares one material object. */
-var wood     =mat(0x8a6a42,0,0.9);
-var rebarMat =mat(0x4a4038,0.6,0.6);
-var pipesMat =mat(0xaab2b8,0.9,0.4,{side:THREE.DoubleSide});
-var ibeamMat =mat(0x35495e,0.6,0.45);
-var angleMat =mat(0x9aa2a8,0.85,0.45);
-var coilMat  =mat(0x6b7075,0.75,0.5);
+      <p class="focus-note">يمكنك سحب وتدوير المنتج 360° للمعاينة الدقيقة. يتم إيقاف التمرير وحركة الكاميرا مؤقتاً أثناء الفحص.</p>
+    </section>
+  </div>
 
-/* FIX 7: hoist shared geometries — identical vertex data was previously
-   re-uploaded to the GPU for every mesh that happened to share the same
-   dimensions.  Three.js requires only one BufferGeometry per unique shape;
-   any number of Mesh objects can reference it with independent transforms. */
-var rebarRodGeo  =new THREE.CylinderGeometry(0.035,0.035,2.8,8);
-var pipeGeo      =new THREE.CylinderGeometry(0.16,0.16,2.8,20,1,true);
-var sheetsBoxGeo =new THREE.BoxGeometry(1.4,0.03,2.7);
-var ibeamFlnGeo  =new THREE.BoxGeometry(0.4,0.04,2.8);
-var ibeamWebGeo  =new THREE.BoxGeometry(0.04,0.36,2.8);
-var angLegHGeo   =new THREE.BoxGeometry(0.14,0.015,2.8);
-var angLegVGeo   =new THREE.BoxGeometry(0.015,0.14,2.8);
-var coilGeo      =new THREE.TorusGeometry(0.5,0.17,14,30);
+  <!-- نافذة ميزان الشاحنات الأرضي وسجل الحمولات -->
+  <div class="inv-ui" id="invUI" aria-hidden="true">
+    <div class="inv-block" id="invBlock"></div>
+    <section class="inv-panel" role="dialog" aria-modal="true" aria-labelledby="invTitle">
+      <div class="inv-header">
+        <h2 id="invTitle">⚖️ سجل حمولة الميزان الأرضي</h2>
+        <span class="inv-scale-badge">معتمد ومعاير</span>
+      </div>
+      <p class="inv-desc">قائمة المواد الحديدية المستقرة حالياً فوق منصة الميزان. يمكنك تعديل كمية أي صنف مباشرة لمشاهدة تحديث الوزن الإجمالي اللحظي.</p>
 
-function pallet(){var g=new THREE.Group();g.add(box(1.6,0.14,2.9,wood,0,0.07,0));return g;}
-function rebar(){var g=pallet();
-  for(var r=0;r<3;r++)for(var c=0;c<5-r;c++){var b=new THREE.Mesh(rebarRodGeo,rebarMat);b.rotation.x=Math.PI/2;b.position.set((c-(4-r)/2)*0.09,0.2+r*0.08,0);g.add(b);}
-  for(var q=0;q<2;q++)for(var c2=0;c2<5;c2++){var b2=new THREE.Mesh(rebarRodGeo,rebarMat);b2.rotation.x=Math.PI/2;b2.position.set((c2-2)*0.09,0.38+q*0.07,0);}
-  return g;}
-function pipes(){var g=pallet(),rad=0.16,row=[4,3,2];
-  row.forEach(function(n,r){for(var c=0;c<n;c++){var b=new THREE.Mesh(pipeGeo,pipesMat);b.rotation.x=Math.PI/2;b.position.set((c-(n-1)/2)*rad*2.1,0.14+rad+r*rad*1.8,0);g.add(b);}});return g;}
-function ibeams(){var g=pallet();
-  [-0.4,0.4].forEach(function(x){[0,1].forEach(function(l){var y=0.3+l*0.5;
-    var f1=new THREE.Mesh(ibeamFlnGeo,ibeamMat);f1.position.set(x,y-0.18,0);g.add(f1);
-    var f2=new THREE.Mesh(ibeamFlnGeo,ibeamMat);f2.position.set(x,y+0.18,0);g.add(f2);
-    var w=new THREE.Mesh(ibeamWebGeo,ibeamMat);w.position.set(x,y,0);g.add(w);
-  });});return g;}
-function sheets(){var g=pallet();for(var i=0;i<9;i++){var s=new THREE.Mesh(sheetsBoxGeo,steel);s.position.set((Math.random()-.5)*0.04,0.17+i*0.04,(Math.random()-.5)*0.04);g.add(s);}return g;}
-function angles(){var g=pallet();
-  for(var r=0;r<2;r++)for(var c=0;c<4;c++){var x=(c-1.5)*0.3,y=0.2+r*0.12;
-    var h=new THREE.Mesh(angLegHGeo,angleMat);h.position.set(x,y,0);g.add(h);
-    var v=new THREE.Mesh(angLegVGeo,angleMat);v.position.set(x-0.06,y+0.06,0);g.add(v);}
-  return g;}
-function coils(){var g=pallet();
-  [-0.8,0.8].forEach(function(z){for(var i=0;i<2;i++){var t=new THREE.Mesh(coilGeo,coilMat);t.rotation.x=Math.PI/2;t.position.set(0,0.25+i*0.34,z);g.add(t);}});return g;}
-var defs=[[-1,-6,'REBAR',rebar],[1,-6,'STEEL PIPES',pipes],[-1,-11.5,'I-BEAMS',ibeams],[1,-11.5,'STEEL SHEETS',sheets],[-1,-17,'WIRE COILS',coils],[1,-17,'ANGLE IRON',angles]];
-defs.forEach(function(d){
-  var g=d[3]();g.scale.setScalar(1.5);g.position.set(d[0]*4.3,0,d[1]);scene.add(g);
-  var sp=new THREE.Sprite(new THREE.SpriteMaterial({map:label(d[2],2.4,0.6,64),transparent:true,fog:false}));
-  sp.scale.set(2.6,0.65,1);sp.position.set(d[0]*4.3,2.7,d[1]);scene.add(sp);
-});
+      <div id="invContent">
+        <!-- يتم توليد جدول المنتجات برمجياً عبر ui.js -->
+      </div>
 
-/* ---------- scroll + camera ---------- */
-function clamp(v,a,b){return Math.min(b,Math.max(a,v));}
-function ease(t){return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;}
-var target=0,cur=-1,yaw=0,pitch=0,dirty=true;
-/* Look-around is armed only once the camera is inside the hall.
-   Dragging accumulates yaw freely, so the hall can be viewed 360°;
-   pitch is clamped just short of straight up/down. */
-var LOOK_FROM=0.52,insideRoom=false,dragging=false;
-var lookYaw=0,lookPitch=0,PITCH_LIMIT=1.45;
-var dragX=0,dragY=0,dragStartYaw=0,dragStartPitch=0;
-function readScroll(){var m=document.documentElement.scrollHeight-innerHeight;target=m>0?clamp(scrollY/m,0,1):0;}
-addEventListener('scroll',readScroll,{passive:true});readScroll();
-/* Click-drag to look. Touch stays free for scrolling the intro. */
-renderer.domElement.addEventListener('pointerdown',function(e){
-  if(!insideRoom||e.pointerType==='touch')return;
-  e.preventDefault();
-  dragging=true;dragX=e.clientX;dragY=e.clientY;
-  dragStartYaw=lookYaw;dragStartPitch=lookPitch;
-  renderer.domElement.style.cursor='grabbing';
-});
-addEventListener('pointermove',function(e){
-  if(!dragging)return;
-  lookYaw=dragStartYaw+(e.clientX-dragX)/innerWidth*Math.PI*2;
-  lookPitch=clamp(dragStartPitch-(e.clientY-dragY)/innerHeight*Math.PI,-PITCH_LIMIT,PITCH_LIMIT);
-  dirty=true;
-});
-function endDrag(){if(!dragging)return;dragging=false;renderer.domElement.style.cursor=insideRoom?'grab':'default';}
-addEventListener('pointerup',endDrag);
-addEventListener('pointercancel',endDrag);
-addEventListener('blur',endDrag);
-/* FIX 8: also update devicePixelRatio on resize so moving the window
-   between monitors with different DPRs is handled correctly. */
-addEventListener('resize',function(){renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);dirty=true;});
-document.getElementById('skip').addEventListener('click',function(){scrollTo({top:document.documentElement.scrollHeight,behavior:'smooth'});});
-var hint=document.getElementById('hint');
+      <div class="inv-actions">
+        <button class="inv-close-btn" id="invClose" type="button">إغلاق السجل</button>
+      </div>
+    </section>
+  </div>
 
-/* FIX 9: guard hint DOM writes — previously opacity and textContent were
-   reassigned on every rendered frame even when the values had not changed,
-   triggering a style-recalculation each time. */
-var hintState=-1;
-function frame(){
-  requestAnimationFrame(frame);
-  var dp=target-cur;
-  var nextCur=cur+dp*0.07;
-  var nowInside=nextCur>LOOK_FROM;
-  if(nowInside!==insideRoom){
-    insideRoom=nowInside;
-    if(!insideRoom){
-      /* Face forward again, keeping the nearest 2π-equivalent angle so the
-         camera does not unwind every turn the user made. */
-      yaw=Math.atan2(Math.sin(yaw),Math.cos(yaw));
-      lookYaw=0;lookPitch=0;dragging=false;
-    }
-    renderer.domElement.style.cursor=insideRoom?'grab':'default';
-  }
-  var ty=insideRoom?lookYaw:0,tp=insideRoom?lookPitch:0;
-  var moving=Math.abs(dp)>0.0002||Math.abs(ty-yaw)>0.0005||Math.abs(tp-pitch)>0.0005;
-  if(!moving&&!dirty)return;
-  dirty=false;
-  cur=nextCur;yaw+=(ty-yaw)*0.15;pitch+=(tp-pitch)*0.15;
-  /* Door starts opening at 0 and is fully up at 0.5. Begin the walk-in at
-     0.05 — while the shutter is still rising — instead of 0.45 (after it
-     had already finished), so entering the hall overlaps the opening. */
-  var pd=clamp(cur/0.5,0,1),pw=ease(clamp((cur-0.05)/0.95,0,1));
-  openDoor(ease(pd)*(H+0.4));
-  var z=9-2*pd-18*pw;
-  var camY=2.3+0.05*Math.sin(pw*40),cp=Math.cos(pitch);
-  camera.position.set(0,camY,z);
-  camera.lookAt(Math.sin(yaw)*cp*10,camY+Math.sin(pitch)*10,z-Math.cos(yaw)*cp*10);
-  var newHintState=cur>LOOK_FROM?2:(cur<0.02?1:0);
-  if(newHintState!==hintState){
-    hintState=newHintState;
-    hint.style.opacity=newHintState>0?1:0;
-    hint.textContent=newHintState===2?'Click and drag to look around · scroll up to close the door':'Scroll to open the door ↓';
-  }
-  renderer.render(scene,camera);
-}
-frame();
-})();
-</script>
+  <!-- إشعار التنبيه العائم -->
+  <div class="toast" id="toast" role="status"></div>
+
+  <!-- قائمة دعم قارئات الشاشة ومحركات البحث -->
+  <ul class="sr">
+    <li>حديد تسليح</li>
+    <li>مواسير فولاذ</li>
+    <li>جسور فولاذية</li>
+    <li>ألواح صلب</li>
+    <li>لفائف أسلاك</li>
+    <li>حديد زوايا</li>
+  </ul>
+
+  <!-- مكتبة Three.js r128 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <!-- الوحدات البرمجية المنظمة -->
+  <script src="js/config.js"></script>
+  <script src="js/helpers.js"></script>
+  <script src="js/scene.js"></script>
+  <script src="js/products.js"></script>
+  <script src="js/scale.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/interaction.js"></script>
+  <script src="js/main.js"></script>
 </body>
 </html>
