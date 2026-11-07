@@ -14,19 +14,38 @@
 </head>
 <body>
 
-  <!-- زر تخطي الحركة الافتتاحية والنزول مباشرة للمعرض -->
-  <button class="skip" id="skip" type="button">تخطي البداية</button>
+  <!-- زر التبديل السلس بين المدخل والمعرض -->
+  <button class="nav-toggle" id="navToggle" type="button">دخول المعرض ↓</button>
 
-  <!-- مسافة التمرير العمودي لفتح البوابة والنزول بالرافعة -->
-  <div class="spacer"></div>
+  <!-- شريط التمرير والتنقل الجانبي التفاعلي المخصص لسطح المكتب (Scrubber) -->
+  <div class="scrubber-wrap" id="scrubberWrap" title="اسحب للتنقل بين المدخل والمعرض">
+    <span class="scrubber-label">المدخل</span>
+    <div class="scrubber-track" id="scrubberTrack">
+      <div class="scrubber-fill" id="scrubberFill"></div>
+      <div class="scrubber-thumb" id="scrubberThumb"></div>
+    </div>
+    <span class="scrubber-label">المعرض</span>
+  </div>
+
+  <!-- علامة التصويب المركزية الثابتة للهواتف فقط (Mobile Centered Reticle) -->
+  <div class="mobile-reticle" id="mobileReticle"></div>
+
+  <!-- أزرار الحركة والتنقل الحصرية للهواتف الذكية (Mobile Navigation Controls) -->
+  <div class="mobile-nav-controls" id="mobileNavControls">
+    <button class="mobile-nav-btn" id="mobileNavFwd" type="button" aria-label="تقدم للأمام">▲</button>
+    <button class="mobile-nav-btn" id="mobileNavBwd" type="button" aria-label="تراجع للخلف">▼</button>
+  </div>
+
+  <!-- زر الفحص السريع المباشر في الهواتف عند التصويب على مادة -->
+  <button class="mobile-action-btn" id="mobileActionBtn" type="button">🔍 فحص المنتج</button>
 
   <!-- تلميحات الإرشاد والحالة أسفل الشاشة -->
-  <div class="hint" id="hint">قم بالتمرير للأسفل لفتح البوابة والنزول للمعرض ↓</div>
+  <div class="hint" id="hint">استخدم عجلة الفأرة أو الأسهم للدخول · أو اضغط "دخول المعرض" ↓</div>
 
   <!-- رسالة خطأ عند عدم دعم المتصفح لـ WebGL -->
   <div class="err" id="err">متصفحك أو جهازك الحالي لا يدعم تقنية WebGL ثلاثية الأبعاد. يرجى فتح الصفحة في متصفح حديث مثل Chrome أو Safari أو Edge.</div>
 
-  <!-- تلميح المؤشر عند الاقتراب من المنتجات أو الميزان -->
+  <!-- تلميح المؤشر عند الاقتراب من المنتجات أو الميزان لسطح المكتب -->
   <div class="pick-hint" id="pickHint"></div>
 
   <!-- طبقة التظليل السينمائي المحيطي -->
@@ -100,6 +119,7 @@
   <script src="js/products.js"></script>
   <script src="js/scale.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/navigation.js"></script>
   <script src="js/interaction.js"></script>
   <script src="js/main.js"></script>
 </body>

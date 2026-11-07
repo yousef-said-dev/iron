@@ -1,5 +1,5 @@
 /* =====================================================================
-   interaction.js — التفاعل اللمسي والفأرة وتدوير المنتجات ثلاثية الأبعاد
+   interaction.js — التفاعل اللمسي والفأرة والتصويب المركزي للهواتف
    ===================================================================== */
 
 var raycasterScale = new THREE.Raycaster();
@@ -8,9 +8,12 @@ var pointerX = innerWidth / 2, pointerY = innerHeight / 2;
 var hoverKey = null, hoverDirty = false;
 var pressActive = false, pressMoved = false, pressStartX = 0, pressStartY = 0;
 
-var insideRoom = false, dragging = false;
+var dragging = false;
 var lookYaw = 0, lookPitch = 0, PITCH_LIMIT = 1.45;
 var dragStartX = 0, dragStartY = 0, dragStartYaw = 0, dragStartPitch = 0;
+
+var mobileReticle = document.getElementById('mobileReticle');
+var mobileActionBtn = document.getElementById('mobileActionBtn');
 
 /* حلقة إشارة التحديد البرتقالية النابضة */
 var hoverRing = new THREE.Mesh(
@@ -24,6 +27,7 @@ hoverRing.userData.sx = 1; hoverRing.userData.sz = 1;
 scene.add(hoverRing);
 
 function positionHint() {
+  if (!pickHintEl || isMobile) return;
   var w = pickHintEl.offsetWidth || 170, h = pickHintEl.offsetHeight || 34;
   var x = Math.max(8, Math.min(pointerX + 16, innerWidth - w - 10));
   var y = Math.max(8, Math.min(pointerY + 16, innerHeight - h - 10));
@@ -31,24 +35,42 @@ function positionHint() {
 }
 
 function showHint(text) {
+  if (!pickHintEl) return;
   pickHintEl.textContent = text;
-  pickHintEl.classList.add('show');
-  positionHint();
+  if (!isMobile) {
+    pickHintEl.classList.add('show');
+    positionHint();
+  }
 }
 
 function clearHover() {
   hoverKey = null;
   hoverDirty = false;
   hoverRing.visible = false;
-  pickHintEl.classList.remove('show');
-  if (insideRoom && !dragging && !focusedKey) {
+  if (pickHintEl) pickHintEl.classList.remove('show');
+  if (mobileReticle) mobileReticle.classList.remove('active');
+  if (mobileActionBtn) mobileActionBtn.classList.remove('show');
+  if (insideRoom && !dragging && !focusedKey && !isMobile) {
     renderer.domElement.style.cursor = CURSOR_CROSSHAIR;
   }
 }
 
+/* حساب إحداثيات الأشعة NDC: في الهاتف نستخدم منتصف الشاشة دائماً (0, 0) */
+function getRaycastNDC(x, y) {
+  if (isMobile) {
+    return { x: 0, y: 0 };
+  } else {
+    return {
+      x: (x / innerWidth) * 2 - 1,
+      y: -(y / innerHeight) * 2 + 1
+    };
+  }
+}
+
 function hitProductAt(x, y) {
-  ndc.x = (x / innerWidth) * 2 - 1;
-  ndc.y = -(y / innerHeight) * 2 + 1;
+  var coords = getRaycastNDC(x, y);
+  ndc.x = coords.x;
+  ndc.y = coords.y;
   camera.updateMatrixWorld(true);
   raycaster.setFromCamera(ndc, camera);
   var hits = raycaster.intersectObjects(pickables, false);
@@ -58,8 +80,18 @@ function hitProductAt(x, y) {
   return { key: key, p: window.ironProducts[key] };
 }
 
+function hitScaleAt(x, y) {
+  var coords = getRaycastNDC(x, y);
+  ndc.x = coords.x;
+  ndc.y = coords.y;
+  camera.updateMatrixWorld(true);
+  raycasterScale.setFromCamera(ndc, camera);
+  var hits = raycasterScale.intersectObjects(scalePickables, true);
+  return hits.length > 0;
+}
+
 function tryPickAt(x, y) {
-  if (focusedKey || invUI.classList.contains('open')) return false;
+  if (focusedKey || (typeof invUI !== 'undefined' && invUI.classList.contains('open'))) return false;
 
   // التحقق أولاً من النقر على الميزان
   if (hitScaleAt(x, y)) {
@@ -83,24 +115,39 @@ function tryPickAt(x, y) {
   return true;
 }
 
+/* تحديث التصويب والتحويم (في الهاتف: التصويب ثابت بالمنتصف ويعمل تلقائياً كـ Hover) */
 function updateHover() {
   hoverDirty = false;
-  if (!insideRoom || focusedKey || invUI.classList.contains('open') || dragging || pressActive) {
+  if (!insideRoom || focusedKey || (typeof invUI !== 'undefined' && invUI.classList.contains('open')) || (!isMobile && (dragging || pressActive))) {
     clearHover();
     return;
   }
 
-  if (hitScaleAt(pointerX, pointerY)) {
+  var checkX = isMobile ? (innerWidth / 2) : pointerX;
+  var checkY = isMobile ? (innerHeight / 2) : pointerY;
+
+  // 1. فحص الميزان
+  if (hitScaleAt(checkX, checkY)) {
     hoverKey = 'SCALE';
     hoverRing.visible = false;
     var totalKg = getTotalScaleKg();
-    showHint('انقر على الميزان لعرض قائمة المواد (' + totalKg.toFixed(1) + ' كجم)');
-    renderer.domElement.style.cursor = 'pointer';
+
+    if (isMobile) {
+      if (mobileReticle) mobileReticle.classList.add('active');
+      if (mobileActionBtn) {
+        mobileActionBtn.textContent = '⚖️ فتح الميزان (' + totalKg.toFixed(1) + ' كجم)';
+        mobileActionBtn.classList.add('show');
+      }
+    } else {
+      showHint('انقر على الميزان لعرض قائمة المواد (' + totalKg.toFixed(1) + ' كجم)');
+      renderer.domElement.style.cursor = 'pointer';
+    }
     dirty = true;
     return;
   }
 
-  var h = hitProductAt(pointerX, pointerY);
+  // 2. فحص المعروضات الحديدية
+  var h = hitProductAt(checkX, checkY);
   if (!h) {
     clearHover();
     return;
@@ -108,11 +155,17 @@ function updateHover() {
 
   var key = h.key, p = h.p, info = PRODUCT_INFO[key] || { title: key };
   var dist = camera.position.distanceTo(p.sphere.center) - p.sphere.radius;
+
   if (dist > NEAR_DIST) {
     hoverKey = null;
     hoverRing.visible = false;
-    showHint('اقترب أكثر لمعاينة ' + info.title);
-    renderer.domElement.style.cursor = insideRoom ? CURSOR_CROSSHAIR : 'default';
+    if (isMobile) {
+      if (mobileReticle) mobileReticle.classList.remove('active');
+      if (mobileActionBtn) mobileActionBtn.classList.remove('show');
+    } else {
+      showHint('اقترب أكثر لمعاينة ' + info.title);
+      renderer.domElement.style.cursor = insideRoom ? CURSOR_CROSSHAIR : 'default';
+    }
     return;
   }
 
@@ -125,8 +178,16 @@ function updateHover() {
     hoverRing.scale.set(p.ringX, p.ringZ, 1);
   }
 
-  showHint('انقر لمعاينة ' + info.title);
-  renderer.domElement.style.cursor = 'pointer';
+  if (isMobile) {
+    if (mobileReticle) mobileReticle.classList.add('active');
+    if (mobileActionBtn) {
+      mobileActionBtn.textContent = '🔍 فحص: ' + info.title;
+      mobileActionBtn.classList.add('show');
+    }
+  } else {
+    showHint('انقر لمعاينة ' + info.title);
+    renderer.domElement.style.cursor = 'pointer';
+  }
   dirty = true;
 }
 
@@ -139,12 +200,10 @@ function updateHoverRing(now) {
 }
 
 /* =====================================================================
-   معالجة أحداث اللمس والفأرة المتطورة (دعم كامل للهواتف والأجهزة اللمسية)
+   معالجة أحداث اللمس والفأرة المتطورة
    ===================================================================== */
-var touchIsDragging = false;
-
 renderer.domElement.addEventListener('pointerdown', function (e) {
-  if (focusedKey || invUI.classList.contains('open')) return;
+  if (focusedKey || (typeof invUI !== 'undefined' && invUI.classList.contains('open'))) return;
   pressActive = true;
   pressMoved = false;
   pressStartX = e.clientX;
@@ -157,7 +216,7 @@ renderer.domElement.addEventListener('pointerdown', function (e) {
     dragStartY = e.clientY;
     dragStartYaw = lookYaw;
     dragStartPitch = lookPitch;
-    renderer.domElement.style.cursor = 'grabbing';
+    if (!isMobile) renderer.domElement.style.cursor = 'grabbing';
     if (renderer.domElement.setPointerCapture) {
       renderer.domElement.setPointerCapture(e.pointerId);
     }
@@ -168,7 +227,7 @@ addEventListener('pointermove', function (e) {
   pointerX = e.clientX;
   pointerY = e.clientY;
 
-  if (pickHintEl.classList.contains('show')) positionHint();
+  if (pickHintEl && pickHintEl.classList.contains('show') && !isMobile) positionHint();
 
   if (pressActive) {
     var distMoved = Math.hypot(e.clientX - pressStartX, e.clientY - pressStartY);
@@ -180,9 +239,11 @@ addEventListener('pointermove', function (e) {
   if (dragging && insideRoom && !focusedKey) {
     var deltaX = e.clientX - dragStartX;
     var deltaY = e.clientY - dragStartY;
-    // في الواجهة العربية RTL: السحب الأفقي يتوافق مع حركة الكاميرا
-    lookYaw = dragStartYaw - (deltaX / innerWidth) * Math.PI * 2.2;
-    lookPitch = clamp(dragStartPitch - (deltaY / innerHeight) * Math.PI, -PITCH_LIMIT, PITCH_LIMIT);
+
+    lookYaw = dragStartYaw - (deltaX / innerWidth) * Math.PI * 2.0;
+    lookPitch = clamp(dragStartPitch + (deltaY / innerHeight) * Math.PI * 1.5, -PITCH_LIMIT, PITCH_LIMIT);
+
+    hoverDirty = true;
     dirty = true;
     return;
   }
@@ -199,11 +260,16 @@ function endPointer(e) {
   pressActive = false;
   if (dragging) {
     dragging = false;
-    renderer.domElement.style.cursor = insideRoom ? CURSOR_CROSSHAIR : 'default';
+    if (!isMobile) renderer.domElement.style.cursor = insideRoom ? CURSOR_CROSSHAIR : 'default';
   }
 
   if (isClick) {
-    tryPickAt(clientX, clientY);
+    // في الهواتف: النقر في أي مكان يلتقط العنصر المصوب عليه في المنتصف
+    if (isMobile) {
+      tryPickAt(innerWidth / 2, innerHeight / 2);
+    } else {
+      tryPickAt(clientX, clientY);
+    }
   }
   hoverDirty = true;
 }
@@ -211,56 +277,65 @@ function endPointer(e) {
 addEventListener('pointerup', endPointer);
 addEventListener('pointercancel', endPointer);
 
+/* زر الفحص المباشر في الهواتف */
+if (mobileActionBtn) {
+  mobileActionBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    tryPickAt(innerWidth / 2, innerHeight / 2);
+  });
+}
+
 /* =====================================================================
    تدوير المنتج باللمس والسحب أثناء نافذة الفحص (Focus Mode)
    ===================================================================== */
 var itemDragActive = false, itemDragMoved = false;
 var itemDragLastX = 0, itemDragLastY = 0;
 
-focusBlock.addEventListener('pointerdown', function (e) {
-  if (!focusedKey || focusPhase !== 'idle' || !focusItem) return;
-  itemDragActive = true;
-  itemDragMoved = false;
-  itemDragLastX = e.clientX;
-  itemDragLastY = e.clientY;
-  focusBlock.classList.add('grabbing');
-  if (focusBlock.setPointerCapture) {
-    focusBlock.setPointerCapture(e.pointerId);
-  }
-});
+if (focusBlock) {
+  focusBlock.addEventListener('pointerdown', function (e) {
+    if (!focusedKey || focusPhase !== 'idle' || !focusItem) return;
+    itemDragActive = true;
+    itemDragMoved = false;
+    itemDragLastX = e.clientX;
+    itemDragLastY = e.clientY;
+    focusBlock.classList.add('grabbing');
+    if (focusBlock.setPointerCapture) {
+      focusBlock.setPointerCapture(e.pointerId);
+    }
+  });
 
-focusBlock.addEventListener('pointermove', function (e) {
-  if (!itemDragActive || !focusedKey || !focusItem) return;
-  var dx = e.clientX - itemDragLastX;
-  var dy = e.clientY - itemDragLastY;
-  if (Math.hypot(dx, dy) > 4) {
-    itemDragMoved = true;
-  }
-  itemDragLastX = e.clientX;
-  itemDragLastY = e.clientY;
+  focusBlock.addEventListener('pointermove', function (e) {
+    if (!itemDragActive || !focusedKey || !focusItem) return;
+    var dx = e.clientX - itemDragLastX;
+    var dy = e.clientY - itemDragLastY;
+    if (Math.hypot(dx, dy) > 4) {
+      itemDragMoved = true;
+    }
+    itemDragLastX = e.clientX;
+    itemDragLastY = e.clientY;
 
-  var rotY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), dx * 0.009);
-  var rotX = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), dy * 0.009);
-  focusItem.quaternion.premultiply(rotY).premultiply(rotX);
-  dirty = true;
-});
+    var rotY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), dx * 0.009);
+    var rotX = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), dy * 0.009);
+    focusItem.quaternion.premultiply(rotY).premultiply(rotX);
+    dirty = true;
+  });
 
-function endItemDrag(e) {
-  if (!itemDragActive) return;
-  itemDragActive = false;
-  focusBlock.classList.remove('grabbing');
-  // إذا كانت نقرة خفيفة دون سحب، يتم إغلاق المعاينة والعودة للمعرض
-  if (!itemDragMoved && e && e.type === 'pointerup') {
-    closeFocus();
-  }
+  var endItemDrag = function (e) {
+    if (!itemDragActive) return;
+    itemDragActive = false;
+    focusBlock.classList.remove('grabbing');
+    if (!itemDragMoved && e && e.type === 'pointerup') {
+      closeFocus();
+    }
+  };
+
+  focusBlock.addEventListener('pointerup', endItemDrag);
+  focusBlock.addEventListener('pointercancel', endItemDrag);
 }
 
-focusBlock.addEventListener('pointerup', endItemDrag);
-focusBlock.addEventListener('pointercancel', endItemDrag);
-
-/* دعم مفاتيح لوحة المفاتيح */
+/* دعم مفاتيح لوحة المفاتيح لإغلاق النوافذ */
 addEventListener('keydown', function (e) {
-  if (invUI.classList.contains('open') && e.key === 'Escape') {
+  if (typeof invUI !== 'undefined' && invUI.classList.contains('open') && e.key === 'Escape') {
     closeInventory();
     return;
   }
@@ -270,7 +345,4 @@ addEventListener('keydown', function (e) {
     return;
   }
   if (e.target && e.target.tagName === 'INPUT') return;
-  if ([' ', 'Spacebar', 'PageDown', 'PageUp', 'Home', 'End', 'ArrowDown', 'ArrowUp'].indexOf(e.key) >= 0) {
-    e.preventDefault();
-  }
 });

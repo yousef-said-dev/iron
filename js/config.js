@@ -7,6 +7,16 @@ var SCALE_Z = -21.5, SCALE_TOP_Y = 0.34;
 var Z_OUTSIDE = 9, Z_DOOR = 7, Z_INSIDE = -17, LOOK_FROM = 0.52;
 var NEAR_DIST = 6.0;
 
+/* كشف الأجهزة اللمسية والهواتف الذكية */
+var isMobile = (function () {
+  return window.matchMedia('(max-width: 768px)').matches || ('ontouchstart' in window && window.innerWidth <= 1024);
+})();
+
+function checkIsMobile() {
+  isMobile = window.matchMedia('(max-width: 768px)').matches || ('ontouchstart' in window && window.innerWidth <= 1024);
+  return isMobile;
+}
+
 /* حالة إعادة التصيير والأشعة العامة */
 var dirty = true;
 var raycaster = new THREE.Raycaster();
@@ -68,5 +78,5 @@ var PRODUCT_INFO = {
   }
 };
 
-/* مؤشر الماوس الصناعي المخصص */
+/* مؤشر الماوس الصناعي المخصص لسطح المكتب */
 var CURSOR_CROSSHAIR = "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\"><circle cx=\"12\" cy=\"12\" r=\"7\" stroke=\"%23d9622b\" stroke-width=\"1.5\" stroke-opacity=\"0.85\"/><circle cx=\"12\" cy=\"12\" r=\"1.5\" fill=\"%23d9622b\"/><line x1=\"12\" y1=\"2\" x2=\"12\" y2=\"4.5\" stroke=\"%23d9622b\" stroke-width=\"1.5\"/><line x1=\"12\" y1=\"19.5\" x2=\"12\" y2=\"22\" stroke=\"%23d9622b\" stroke-width=\"1.5\"/><line x1=\"2\" y1=\"12\" x2=\"4.5\" y2=\"12\" stroke=\"%23d9622b\" stroke-width=\"1.5\"/><line x1=\"19.5\" y1=\"12\" x2=\"22\" y2=\"12\" stroke=\"%23d9622b\" stroke-width=\"1.5\"/></svg>') 12 12, crosshair";

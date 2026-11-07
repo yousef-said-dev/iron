@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3D Product Snapshot</title>
+<style>
+  html,body{height:100%;margin:0;background:#0b0e13;color:#eceae6;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+  body{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;padding:16px;overflow:hidden}
+  canvas{width:min(82vmin,820px);height:auto;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.55)}
+  .ui{display:flex;align-items:center;gap:12px;font-size:14px;flex-wrap:wrap;justify-content:center;text-align:center}
+  button{background:#20262f;color:#eceae6;border:1px solid rgba(255,255,255,.22);padding:10px 16px;border-radius:8px;cursor:pointer}
+  button:hover{background:#2a323d}
+  #status{opacity:.75}
+  .err{display:none;max-width:520px;text-align:center;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="ui" id="ui">
+  <button id="again" type="button">Download image again</button>
+  <span id="status">Rendering…</span>
+</div>
+<div class="err" id="err">Could not load the 3D library. Check your internet connection and reload.</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  if(!window.THREE){
+    document.getElementById('err').style.display='block';
+    document.getElementById('ui').style.display='none';
+    return;
+  }
+
+  /* ---------- setup ---------- */
+  var SIZE=1600;
+  var renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,powerPreference:'high-performance'});
+  renderer.setPixelRatio(1);
+  renderer.setSize(SIZE,SIZE,false);
+  renderer.outputEncoding=THREE.sRGBEncoding;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.15;
+  document.body.insertBefore(renderer.domElement,document.getElementById('ui'));
+
+  var scene=new THREE.Scene();
+  var camera=new THREE.PerspectiveCamera(36,1,0.1,200);
+
+  /* soft studio backdrop */
+  (function(){
+    var c=document.createElement('canvas');c.width=c.height=1024;
+    var x=c.getContext('2d');
+    var g=x.createRadialGradient(512,380,40,512,512,700);
+    g.addColorStop(0,'#3b4656');
+    g.addColorStop(.55,'#202733');
+    g.addColorStop(1,'#0d1117');
+    x.fillStyle=g;x.fillRect(0,0,1024,1024);
+    var t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;
+    scene.background=t;
+  })();
+
+  /* reflections, same idea as the main page */
+  (function(){
+    var es=new THREE.Scene();
+    var c=document.createElement('canvas');c.width=4;c.height=256;
+    var x=c.getContext('2d');
+    var g=x.createLinearGradient(0,0,0,256);
+    g.addColorStop(0,'#9fb4cc');g.addColorStop(.5,'#3a4452');g.addColorStop(1,'#14161a');
+    x.fillStyle=g;x.fillRect(0,0,4,256);
+    es.add(new THREE.Mesh(
+      new THREE.SphereGeometry(40,24,12),
+      new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),side:THREE.BackSide})
+    ));
+    for(var i=0;i<7;i++){
+      var m=new THREE.MeshBasicMaterial({side:THREE.DoubleSide});m.color.setScalar(9);
+      var p=new THREE.Mesh(new THREE.PlaneGeometry(16,1.4),m);
+      p.position.set(Math.cos(i)*12,10+i%3*2,Math.sin(i)*12);
+      p.lookAt(0,0,0);
+      es.add(p);
+    }
+    var pm=new THREE.PMREMGenerator(renderer);
+    scene.environment=pm.fromScene(es,0.03).texture;
+    pm.dispose();
+    es.traverse(function(o){if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();});
+  })();
+
+  scene.add(new THREE.HemisphereLight(0xbfd0e0,0x1a1a1a,0.55));
+  var key=new THREE.DirectionalLight(0xffe9cc,2.6);key.position.set(6,9,7);scene.add(key);
+  var fill=new THREE.DirectionalLight(0x9fc0e8,1.1);fill.position.set(-7,4,5);scene.add(fill);
+  var rim=new THREE.DirectionalLight(0xffdca8,1.6);rim.position.set(-2,6,-8);scene.add(rim);
+
+  /* ---------- product builders (same shapes as index.html) ---------- */
+  function mat(color,m,r,extra){var o={color:color,metalness:m,roughness:r};for(var k in extra)o[k]=extra[k];return new THREE.MeshStandardMaterial(o);}
+  function box(w,h,d,m,x,y,z){var b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);b.position.set(x||0,y||0,z||0);return b;}
+
+  var wood     =mat(0x8a6a42,0,0.9);
+  var steel    =mat(0xbcc4ca,0.92,0.34);
+  var rebarMat =mat(0x4a4038,0.6,0.6);
+  var pipesMat =mat(0xaab2b8,0.9,0.4,{side:THREE.DoubleSide});
+  var ibeamMat =mat(0x35495e,0.6,0.45);
+  var angleMat =mat(0x9aa2a8,0.85,0.45);
+  var coilMat  =mat(0x6b7075,0.75,0.5);
+
+  var rebarRodGeo  =new THREE.CylinderGeometry(0.035,0.035,2.8,8);
+  var pipeGeo      =new THREE.CylinderGeometry(0.16,0.16,2.8,20,1,true);
+  var sheetsBoxGeo =new THREE.BoxGeometry(1.4,0.03,2.7);
+  var ibeamFlnGeo  =new THREE.BoxGeometry(0.4,0.04,2.8);
+  var ibeamWebGeo  =new THREE.BoxGeometry(0.04,0.36,2.8);
+  var angLegHGeo   =new THREE.BoxGeometry(0.14,0.015,2.8);
+  var angLegVGeo   =new THREE.BoxGeometry(0.015,0.14,2.8);
+  var coilGeo      =new THREE.TorusGeometry(0.5,0.17,14,30);
+
+  function pallet(){var g=new THREE.Group();g.add(box(1.6,0.14,2.9,wood,0,0.07,0));return g;}
+  function rebar(){var g=pallet();
+    for(var r=0;r<3;r++)for(var c=0;c<5-r;c++){var b=new THREE.Mesh(rebarRodGeo,rebarMat);b.rotation.x=Math.PI/2;b.position.set((c-(4-r)/2)*0.09,0.2+r*0.08,0);g.add(b);}
+    for(var q=0;q<2;q++)for(var c2=0;c2<5;c2++){var b2=new THREE.Mesh(rebarRodGeo,rebarMat);b2.rotation.x=Math.PI/2;b2.position.set((c2-2)*0.09,0.38+q*0.07,0);}
+    return g;}
+  function pipes(){var g=pallet(),rad=0.16,row=[4,3,2];
+    row.forEach(function(n,r){for(var c=0;c<n;c++){var b=new THREE.Mesh(pipeGeo,pipesMat);b.rotation.x=Math.PI/2;b.position.set((c-(n-1)/2)*rad*2.1,0.14+rad+r*rad*1.8,0);g.add(b);}});return g;}
+  function ibeams(){var g=pallet();
+    [-0.4,0.4].forEach(function(x){[0,1].forEach(function(l){var y=0.3+l*0.5;
+      var f1=new THREE.Mesh(ibeamFlnGeo,ibeamMat);f1.position.set(x,y-0.18,0);g.add(f1);
+      var f2=new THREE.Mesh(ibeamFlnGeo,ibeamMat);f2.position.set(x,y+0.18,0);g.add(f2);
+      var w=new THREE.Mesh(ibeamWebGeo,ibeamMat);w.position.set(x,y,0);g.add(w);
+    });});return g;}
+  function sheets(){var g=pallet();for(var i=0;i<9;i++){var s=new THREE.Mesh(sheetsBoxGeo,steel);s.position.set((Math.random()-.5)*0.04,0.17+i*0.04,(Math.random()-.5)*0.04);g.add(s);}return g;}
+  function angles(){var g=pallet();
+    for(var r=0;r<2;r++)for(var c=0;c<4;c++){var x=(c-1.5)*0.3,y=0.2+r*0.12;
+      var h=new THREE.Mesh(angLegHGeo,angleMat);h.position.set(x,y,0);g.add(h);
+      var v=new THREE.Mesh(angLegVGeo,angleMat);v.position.set(x-0.06,y+0.06,0);g.add(v);}
+    return g;}
+  function coils(){var g=pallet();
+    [-0.8,0.8].forEach(function(z){for(var i=0;i<2;i++){var t=new THREE.Mesh(coilGeo,coilMat);t.rotation.x=Math.PI/2;t.position.set(0,0.25+i*0.34,z);g.add(t);}});return g;}
+
+  var builders={rebar:rebar,pipes:pipes,ibeams:ibeams,sheets:sheets,coils:coils,angles:angles};
+  var requested=new URLSearchParams(location.search).get('product');
+  var product=builders[requested]?requested:'rebar';
+
+  /* ---------- build one group and center it ---------- */
+  var group=builders[product]();
+  group.scale.setScalar(1.5);
+  group.updateMatrixWorld(true);
+
+  var box3=new THREE.Box3().setFromObject(group);
+  var center=box3.getCenter(new THREE.Vector3());
+  group.position.sub(center);
+  group.updateMatrixWorld(true);
+  scene.add(group);
+
+  var bounds=new THREE.Box3().setFromObject(group);
+  var sphere=bounds.getBoundingSphere(new THREE.Sphere());
+
+  /* soft contact shadow */
+  (function(){
+    var c=document.createElement('canvas');c.width=c.height=256;
+    var x=c.getContext('2d');
+    var g=x.createRadialGradient(128,128,0,128,128,128);
+    g.addColorStop(0,'rgba(0,0,0,.6)');g.addColorStop(.55,'rgba(0,0,0,.28)');g.addColorStop(1,'rgba(0,0,0,0)');
+    x.fillStyle=g;x.fillRect(0,0,256,256);
+    var tex=new THREE.CanvasTexture(c);
+    var size=Math.max(bounds.max.x-bounds.min.x,bounds.max.z-bounds.min.z);
+    var shadow=new THREE.Mesh(
+      new THREE.PlaneGeometry(1,1),
+      new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false,opacity:.85})
+    );
+    shadow.rotation.x=-Math.PI/2;
+    shadow.scale.set(size*2.1,size*2.1,1);
+    shadow.position.set(0,bounds.min.y+0.005,0);
+    scene.add(shadow);
+  })();
+
+  /* camera: three-quarter product shot */
+  var halfFov=camera.fov*Math.PI/360;
+  var dist=sphere.radius/Math.sin(halfFov)*1.18;
+  camera.position.copy(new THREE.Vector3(1,0.52,1.25).normalize().multiplyScalar(dist));
+  camera.lookAt(0,0,0);
+  camera.updateProjectionMatrix();
+
+  /* ---------- render and download ---------- */
+  var status=document.getElementById('status');
+  var fileName=(product==='ibeams'?'i-beams':product)+'.png';
+
+  function download(){
+    renderer.render(scene,camera);
+    renderer.domElement.toBlob(function(blob){
+      if(!blob){status.textContent='Could not create the image.';return;}
+      var url=URL.createObjectURL(blob);
+      var a=document.createElement('a');
+      a.href=url;
+      a.download=fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function(){URL.revokeObjectURL(url);},10000);
+      status.textContent='Downloaded '+fileName+' — if nothing happened, use the button.';
+    },'image/png');
+  }
+
+  document.getElementById('again').addEventListener('click',download);
+  requestAnimationFrame(function(){requestAnimationFrame(download);});
+})();
+</script>
+</body>
+</html>

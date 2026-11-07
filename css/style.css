@@ -1,12 +1,14 @@
 :root {
   --ink: #eceae6;
-  --ink-dim: rgba(236, 234, 230, 0.7);
+  --ink-dim: rgba(236, 234, 230, 0.72);
   --ink-faint: rgba(236, 234, 230, 0.45);
   --panel: rgba(18, 22, 28, 0.88);
+  --panel-glass: rgba(18, 22, 28, 0.94);
   --accent: #d9622b;
   --accent-bright: #e06a31;
   --accent-hover: #eb773c;
   --scale-green: #7dffb0;
+  --scale-dim: #3fd07d;
   --bg-dark: #12161f;
   box-sizing: border-box;
 }
@@ -24,11 +26,13 @@ html, body {
   font-family: 'Cairo', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   direction: rtl;
   text-align: right;
-}
-
-/* Scroll spacer */
-.spacer {
-  height: 420vh;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  position: fixed;
+  inset: 0;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* Three.js canvas */
@@ -53,45 +57,237 @@ canvas {
 /* Bottom status hint */
 .hint {
   position: fixed;
-  left: 14px;
-  right: 14px;
-  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  left: 20px;
+  right: 20px;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   text-align: center;
   font-size: clamp(13px, 3.2vw, 15px);
   font-weight: 600;
   z-index: 5;
   pointer-events: none;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
   transition: opacity 0.3s;
 }
 
-/* Skip intro button */
-.skip {
+/* Top Navigation / Toggle Entrance button */
+.nav-toggle {
   position: fixed;
-  top: calc(14px + env(safe-area-inset-top, 0px));
-  left: 14px;
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  left: 18px;
   z-index: 6;
-  background: rgba(18, 22, 28, 0.85);
+  background: rgba(18, 22, 28, 0.88);
   color: var(--ink);
   border: 1px solid rgba(255, 255, 255, 0.22);
-  padding: 10px 18px;
-  border-radius: 10px;
+  padding: 10px 20px;
+  border-radius: 12px;
   cursor: pointer;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   font-family: inherit;
   font-size: 14px;
-  font-weight: 600;
-  transition: background 0.2s, border-color 0.2s;
+  font-weight: 700;
+  transition: all 0.25s ease;
   min-height: 44px;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
-.skip:hover, .skip:active {
-  background: rgba(30, 36, 46, 0.95);
-  border-color: rgba(255, 255, 255, 0.4);
+.nav-toggle:hover, .nav-toggle:active {
+  background: rgba(30, 38, 48, 0.98);
+  border-color: var(--accent-bright);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+/* Sleek Interactive Camera Scrubber (Progress bar on side - Desktop) */
+.scrubber-wrap {
+  position: fixed;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: rgba(18, 22, 28, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 14px 10px;
+  border-radius: 24px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  transition: opacity 0.3s;
+}
+
+.scrubber-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+}
+
+.scrubber-track {
+  width: 6px;
+  height: 140px;
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 4px;
+  position: relative;
+  cursor: pointer;
+}
+
+.scrubber-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0%;
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-bright) 100%);
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.scrubber-thumb {
+  position: absolute;
+  top: 0%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--accent-bright);
+  box-shadow: 0 0 12px rgba(224, 106, 49, 0.9);
+  pointer-events: none;
+}
+
+/* =====================================================================
+   عناصر الهاتف الحصرية: علامة التصويب المركزية الثابتة وأزرار الحركة
+   ===================================================================== */
+.mobile-reticle {
+  display: none;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  pointer-events: none;
+  z-index: 6;
+  transition: transform 0.15s ease;
+}
+
+.mobile-reticle::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(217, 98, 43, 0.75);
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.mobile-reticle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 5px;
+  height: 5px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 6px var(--accent);
+  transition: all 0.2s ease;
+}
+
+/* حالة التصويب النشط على منتج أو على الميزان */
+.mobile-reticle.active::before {
+  border-color: #55f096;
+  transform: scale(1.35);
+  box-shadow: 0 0 16px rgba(85, 240, 150, 0.85);
+}
+
+.mobile-reticle.active::after {
+  background: #55f096;
+  width: 7px;
+  height: 7px;
+  box-shadow: 0 0 8px #55f096;
+}
+
+/* أزرار الحركة الحصرية للهواتف */
+.mobile-nav-controls {
+  display: none;
+  position: fixed;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  right: 18px;
+  z-index: 7;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mobile-nav-btn {
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  background: rgba(18, 22, 28, 0.9);
+  color: var(--ink);
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  font-family: inherit;
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: all 0.15s ease;
+}
+
+.mobile-nav-btn:active {
+  background: var(--accent);
+  border-color: var(--accent-bright);
+  color: #fff;
+  transform: scale(0.94);
+}
+
+/* زر الفحص المباشر عند تصويب الكروسهير على مادة */
+.mobile-action-btn {
+  display: none;
+  position: fixed;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  left: 18px;
+  z-index: 7;
+  padding: 12px 20px;
+  min-height: 54px;
+  border-radius: 16px;
+  background: var(--accent);
+  color: #fff;
+  border: 1.5px solid var(--accent-bright);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 6px 25px rgba(217, 98, 43, 0.6);
+  cursor: pointer;
+  touch-action: manipulation;
+  animation: pulseGlow 1.8s infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 6px 20px rgba(217, 98, 43, 0.5); }
+  50% { box-shadow: 0 6px 28px rgba(224, 106, 49, 0.85); transform: translateY(-1px); }
+}
+
+.mobile-action-btn.show {
+  display: flex;
 }
 
 .sr {
@@ -113,7 +309,7 @@ canvas {
   line-height: 1.6;
 }
 
-/* Hover hint tooltip */
+/* Hover hint tooltip (Desktop) */
 .pick-hint {
   position: fixed;
   left: 0;
@@ -164,7 +360,7 @@ canvas {
 
 .focus-panel {
   position: absolute;
-  left: max(3vw, 20px);
+  left: max(3vw, 24px);
   top: 50%;
   transform: translateY(-50%);
   width: min(440px, 42vw);
@@ -178,6 +374,8 @@ canvas {
   box-shadow: 0 28px 85px rgba(0, 0, 0, 0.72);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .focus-kicker {
@@ -340,10 +538,6 @@ canvas {
   transform: translate(-50%, 0);
 }
 
-html.focus-lock, body.focus-lock {
-  overflow: hidden !important;
-}
-
 /* Floor Scale Inventory Modal */
 .inv-ui {
   position: fixed;
@@ -374,13 +568,15 @@ html.focus-lock, body.focus-lock {
   max-height: 84vh;
   overflow-y: auto;
   pointer-events: auto;
-  background: var(--panel);
+  background: var(--panel-glass);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 20px;
   padding: 26px 28px;
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .inv-header {
@@ -544,8 +740,34 @@ html.focus-lock, body.focus-lock {
   background: #2b3442;
 }
 
-/* Mobile responsive styles */
+/* =====================================================================
+   التجاوب مع الشاشات اللمسية والهواتف الذكية (Mobile Responsive)
+   ===================================================================== */
 @media (max-width: 768px) {
+  /* إظهار علامة التصويب المركزية الثابتة وأزرار الحركة */
+  .mobile-reticle {
+    display: block;
+  }
+
+  .mobile-nav-controls {
+    display: flex;
+  }
+
+  /* إخفاء شريط التمرير الجانبي في الهاتف لمنع الازدحام */
+  .scrubber-wrap {
+    display: none;
+  }
+
+  /* إخفاء عناصر التحكم المركزية أثناء فتح نافذة المعاينة */
+  body:has(.focus-ui.open) .mobile-reticle,
+  body:has(.focus-ui.open) .mobile-nav-controls,
+  body:has(.focus-ui.open) .mobile-action-btn,
+  body:has(.inv-ui.open) .mobile-reticle,
+  body:has(.inv-ui.open) .mobile-nav-controls,
+  body:has(.inv-ui.open) .mobile-action-btn {
+    display: none !important;
+  }
+
   .focus-panel {
     left: 12px;
     right: 12px;
@@ -553,7 +775,7 @@ html.focus-lock, body.focus-lock {
     bottom: 12px;
     transform: none;
     width: auto;
-    max-height: 52vh;
+    max-height: 54vh;
     padding: 20px 16px;
     border-radius: 18px;
   }
@@ -610,9 +832,14 @@ html.focus-lock, body.focus-lock {
     font-size: 13px;
   }
 
-  .skip {
+  .nav-toggle {
     font-size: 13px;
     padding: 8px 14px;
     min-height: 40px;
+  }
+
+  .hint {
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    font-size: 12px;
   }
 }
