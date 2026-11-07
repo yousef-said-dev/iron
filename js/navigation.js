@@ -42,20 +42,20 @@ addEventListener('keydown', function (e) {
   // التقدم للأمام
   if (['ArrowUp', 'KeyW', 'PageDown', ' '].indexOf(e.code || e.key) >= 0 || e.key === 'ArrowUp' || e.key === ' ') {
     e.preventDefault();
-    target = clamp(target + 0.12, 0, 1);
+    target = clamp(target + KEY_MOVE_STEP, 0, 1);
     dirty = true;
   }
   // التراجع للخلف
   else if (['ArrowDown', 'KeyS', 'PageUp'].indexOf(e.code || e.key) >= 0 || e.key === 'ArrowDown') {
     e.preventDefault();
-    target = clamp(target - 0.12, 0, 1);
+    target = clamp(target - KEY_MOVE_STEP, 0, 1);
     dirty = true;
   }
   // الالتفات لليمين
   else if (['ArrowRight', 'KeyD'].indexOf(e.code || e.key) >= 0 || e.key === 'ArrowRight') {
     if (insideRoom) {
       e.preventDefault();
-      lookYaw += 0.12;
+      lookYaw += KEY_TURN_STEP;
       dirty = true;
     }
   }
@@ -63,7 +63,7 @@ addEventListener('keydown', function (e) {
   else if (['ArrowLeft', 'KeyA'].indexOf(e.code || e.key) >= 0 || e.key === 'ArrowLeft') {
     if (insideRoom) {
       e.preventDefault();
-      lookYaw -= 0.12;
+      lookYaw -= KEY_TURN_STEP;
       dirty = true;
     }
   }

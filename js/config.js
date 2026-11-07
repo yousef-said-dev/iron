@@ -7,6 +7,10 @@ var SCALE_Z = -21.5, SCALE_TOP_Y = 0.34;
 var Z_OUTSIDE = 9, Z_DOOR = 7, Z_INSIDE = -17, LOOK_FROM = 0.52;
 var NEAR_DIST = 6.0;
 
+/* مسافة خطوة الحركة وزاوية الالتفات عند الضغط على أزرار لوحة المفاتيح */
+var KEY_MOVE_STEP = 0.035; // مقدار خطوة التقدم والتراجع (تقليل الرقم يجعل الحركة بخطوات أقصر وأدق)
+var KEY_TURN_STEP = 0.08;  // مقدار زاوية الالتفات يميناً ويساراً بالراديان (~4.5 درجات)
+
 /* كشف الأجهزة اللمسية والهواتف الذكية */
 var isMobile = (function () {
   return window.matchMedia('(max-width: 768px)').matches || ('ontouchstart' in window && window.innerWidth <= 1024);

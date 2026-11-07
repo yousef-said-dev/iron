@@ -143,7 +143,7 @@ iron/
 | **تعديل ترتيب أو سعة المواد فوق الميزان** | `js/scale.js` | دالة `updateScaleItems()` |
 | **تغيير تصميم شاشة الميزان الرقمية** | `js/scale.js` | دالة `updateScaleDisplay()` |
 | **تعديل سرعة أو حساسية التمرير ودخول البوابة** | `js/navigation.js` | معاملات التخميد في `updateNavigation()` ومستمع `wheel` |
-| **تعديل اختصارات لوحة المفاتيح (Arrows / WASD)** | `js/navigation.js` | مستمع حدث `keydown` |
+| **تعديل اختصارات أو مسافة خطوة لوحة المفاتيح (Step Size)** | `js/config.js` و `js/navigation.js` | المتغير `KEY_MOVE_STEP` و `KEY_TURN_STEP` |
 | **تعديل أزرار المشي للهاتف (Mobile Buttons)** | `js/navigation.js` و `index.html` | دوال `startMobileMove` وأزرار `#mobileNavFwd` |
 | **تعديل حساسية أو اتجاه محاور الفأرة (Invert Mouse)** | `js/interaction.js` | سطور `lookYaw` و `lookPitch` في مستمع `pointermove` |
 | **تعديل شعيرة الهاتف أو كاشف التحويم المركزي** | `js/interaction.js` | دالة `updateHover()` و `getRaycastNDC()` |
