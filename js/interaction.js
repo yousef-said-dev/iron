@@ -171,11 +171,15 @@ function updateHover() {
 
   if (hoverKey !== key) {
     hoverKey = key;
-    hoverRing.visible = true;
-    hoverRing.position.set(p.group.position.x, 0.025, p.group.position.z);
-    hoverRing.userData.sx = p.ringX;
-    hoverRing.userData.sz = p.ringZ;
-    hoverRing.scale.set(p.ringX, p.ringZ, 1);
+    if (!isMobile) {
+      hoverRing.visible = true;
+      hoverRing.position.set(p.group.position.x, 0.025, p.group.position.z);
+      hoverRing.userData.sx = p.ringX;
+      hoverRing.userData.sz = p.ringZ;
+      hoverRing.scale.set(p.ringX, p.ringZ, 1);
+    } else {
+      hoverRing.visible = false;
+    }
   }
 
   if (isMobile) {
@@ -223,6 +227,8 @@ renderer.domElement.addEventListener('pointerdown', function (e) {
   }
 });
 
+var lastMobileHoverTime = 0;
+
 addEventListener('pointermove', function (e) {
   pointerX = e.clientX;
   pointerY = e.clientY;
@@ -243,7 +249,16 @@ addEventListener('pointermove', function (e) {
     lookYaw = dragStartYaw - (deltaX / innerWidth) * Math.PI * 2.0;
     lookPitch = clamp(dragStartPitch + (deltaY / innerHeight) * Math.PI * 1.5, -PITCH_LIMIT, PITCH_LIMIT);
 
-    hoverDirty = true;
+    // جدولة إطلاق الأشعة في الهواتف كل 90ms أثناء السحب لتجنب إجهاد المعالج
+    if (isMobile) {
+      var now = performance.now();
+      if (now - lastMobileHoverTime > 90) {
+        lastMobileHoverTime = now;
+        hoverDirty = true;
+      }
+    } else {
+      hoverDirty = true;
+    }
     dirty = true;
     return;
   }
@@ -261,6 +276,10 @@ function endPointer(e) {
   if (dragging) {
     dragging = false;
     if (!isMobile) renderer.domElement.style.cursor = insideRoom ? CURSOR_CROSSHAIR : 'default';
+    if (isMobile) {
+      hoverDirty = true;
+      dirty = true;
+    }
   }
 
   if (isClick) {

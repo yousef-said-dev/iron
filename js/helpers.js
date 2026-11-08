@@ -5,14 +5,16 @@
 /* توليد خامات الضجيج المحببة للجدران والأرضيات والخرسانة (بدون تحميل صور خارجية) */
 function noiseTex(base, rx, ry, dark) {
   var c = document.createElement('canvas');
-  c.width = c.height = 256;
+  var size = (typeof isMobile !== 'undefined' && isMobile) ? 128 : 256;
+  var count = (typeof isMobile !== 'undefined' && isMobile) ? 800 : 3000;
+  c.width = c.height = size;
   var x = c.getContext('2d');
   x.fillStyle = base;
-  x.fillRect(0, 0, 256, 256);
-  for (var i = 0; i < 3000; i++) {
+  x.fillRect(0, 0, size, size);
+  for (var i = 0; i < count; i++) {
     var v = Math.random() < 0.5 ? (dark ? 0 : 255) : 128;
     x.fillStyle = 'rgba(' + v + ',' + v + ',' + v + ',.07)';
-    x.fillRect(Math.random() * 256, Math.random() * 256, Math.random() * 4 + 1, Math.random() * 4 + 1);
+    x.fillRect(Math.random() * size, Math.random() * size, Math.random() * 3 + 1, Math.random() * 3 + 1);
   }
   var t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;

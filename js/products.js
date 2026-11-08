@@ -9,14 +9,14 @@ var ibeamMat = mat(0x384c60, 0.7, 0.4);
 var angleMat = mat(0xa6b0b8, 0.9, 0.36);
 var coilMat = mat(0x767d84, 0.82, 0.42);
 
-var rebarRodGeo = new THREE.CylinderGeometry(0.035, 0.035, 2.8, 8);
-var pipeGeo = new THREE.CylinderGeometry(0.16, 0.16, 2.8, 20, 1, true);
+var rebarRodGeo = new THREE.CylinderGeometry(0.035, 0.035, 2.8, (typeof isMobile !== 'undefined' && isMobile) ? 6 : 8);
+var pipeGeo = new THREE.CylinderGeometry(0.16, 0.16, 2.8, (typeof isMobile !== 'undefined' && isMobile) ? 12 : 20, 1, true);
 var sheetsBoxGeo = new THREE.BoxGeometry(1.4, 0.03, 2.7);
 var ibeamFlnGeo = new THREE.BoxGeometry(0.4, 0.04, 2.8);
 var ibeamWebGeo = new THREE.BoxGeometry(0.04, 0.36, 2.8);
 var angLegHGeo = new THREE.BoxGeometry(0.14, 0.015, 2.8);
 var angLegVGeo = new THREE.BoxGeometry(0.015, 0.14, 2.8);
-var coilGeo = new THREE.TorusGeometry(0.5, 0.17, 14, 30);
+var coilGeo = new THREE.TorusGeometry(0.5, 0.17, (typeof isMobile !== 'undefined' && isMobile) ? 8 : 14, (typeof isMobile !== 'undefined' && isMobile) ? 18 : 30);
 
 function pallet() {
   var g = new THREE.Group();

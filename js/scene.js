@@ -5,11 +5,13 @@
 var renderer;
 var dpr = window.devicePixelRatio;
 try {
-  renderer = new THREE.WebGLRenderer({ antialias: dpr < 2, powerPreference: 'high-performance' });
+  // تعطيل antialias على الهواتف لرفع الأداء بشكل فوري
+  renderer = new THREE.WebGLRenderer({ antialias: (!isMobile && dpr < 2), powerPreference: 'high-performance' });
 } catch (e) {
   document.getElementById('err').style.display = 'flex';
 }
-renderer.setPixelRatio(Math.min(dpr, 2));
+// ضبط كثافة البكسل: 1.0 على الهواتف لخفض حمل المعالجة بنسبة 60-75%، وبحد أقصى 2.0 على الحواسيب
+renderer.setPixelRatio(isMobile ? 1.0 : Math.min(dpr, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -48,13 +50,21 @@ scene.add(camera);
   });
 })();
 
-/* خامات المستودع والأسطح */
+/* خامات المستودع والأسطح: استخدام MeshLambertMaterial في الهواتف للجدران والأسفلت لتخفيف الشيدر */
 var steel = mat(0xc6ced6, 0.94, 0.28);
 var darkSteel = mat(0x282c32, 0.85, 0.45);
-var concrete = mat(0xffffff, 0, 0.92, { map: noiseTex('#8d9094', 6, 2, true) });
-var asphalt = mat(0xffffff, 0, 0.98, { map: noiseTex('#2a2d31', 12, 12, false) });
-var epoxy = mat(0x383e46, 0.25, 0.32, { envMapIntensity: 0.65 });
-var wallMat = mat(0xffffff, 0, 0.95, { map: noiseTex('#9a9c9f', 3, 2, true) });
+var concrete, asphalt, wallMat;
+
+if (isMobile) {
+  concrete = new THREE.MeshLambertMaterial({ color: 0xffffff, map: noiseTex('#8d9094', 4, 2, true) });
+  asphalt = new THREE.MeshLambertMaterial({ color: 0xffffff, map: noiseTex('#2a2d31', 8, 8, false) });
+  wallMat = new THREE.MeshLambertMaterial({ color: 0xffffff, map: noiseTex('#9a9c9f', 2, 2, true) });
+} else {
+  concrete = mat(0xffffff, 0, 0.92, { map: noiseTex('#8d9094', 6, 2, true) });
+  asphalt = mat(0xffffff, 0, 0.98, { map: noiseTex('#2a2d31', 12, 12, false) });
+  wallMat = mat(0xffffff, 0, 0.95, { map: noiseTex('#9a9c9f', 3, 2, true) });
+}
+var epoxy = isMobile ? mat(0x383e46, 0.15, 0.4) : mat(0x383e46, 0.25, 0.32, { envMapIntensity: 0.65 });
 
 /* مبنى المستودع والجدران */
 var pierW = 7, wallH = 8.5;
@@ -94,13 +104,13 @@ bolts.instanceMatrix.needsUpdate = true;
 scene.add(bolts);
 
 /* أسطوانة لف الستارة العلوية */
-var core = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.05, R - 0.05, W + 0.1, 24), darkSteel);
+var core = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.05, R - 0.05, W + 0.1, isMobile ? 12 : 24), darkSteel);
 core.rotation.z = Math.PI / 2;
 core.position.set(0, H, -R);
 scene.add(core);
 
 [-1, 1].forEach(function (s) {
-  var d = new THREE.Mesh(new THREE.CylinderGeometry(0.78, 0.78, 0.07, 28), darkSteel);
+  var d = new THREE.Mesh(new THREE.CylinderGeometry(0.78, 0.78, 0.07, isMobile ? 14 : 28), darkSteel);
   d.rotation.z = Math.PI / 2;
   d.position.set(s * (W / 2 + 0.1), H, -R);
   scene.add(d);
@@ -129,16 +139,23 @@ var lamp = new THREE.MeshStandardMaterial({ color: 0x222222, emissive: 0xffe6b8,
 });
 
 /* إضاءة المشهد الشاملة والإضاءة الحافية للمعدن */
-scene.add(new THREE.HemisphereLight(0xbfd0e0, 0x1a1a1a, 0.5));
+scene.add(new THREE.HemisphereLight(0xbfd0e0, 0x1a1a1a, isMobile ? 0.95 : 0.5));
 var spot = new THREE.SpotLight(0xffe2b0, 2.4, 32, 0.85, 0.55);
 spot.position.set(0, H + 3, 7);
 spot.target.position.set(0, H / 2, 0);
 scene.add(spot, spot.target);
 
-for (var i = 0; i < 4; i++) {
-  var pl = new THREE.PointLight(0xffe2b0, 1.45, 18, 2);
-  pl.position.set(0, 7.2, -4 - i * 5.5);
+if (isMobile) {
+  // تقليل المصابيح النقطية لمصباح مركزي واحد على الهاتف لتوفير استهلاك الـ GPU
+  var pl = new THREE.PointLight(0xffe2b0, 1.8, 30, 1.2);
+  pl.position.set(0, 7.2, -12);
   scene.add(pl);
+} else {
+  for (var i = 0; i < 4; i++) {
+    var pl = new THREE.PointLight(0xffe2b0, 1.45, 18, 2);
+    pl.position.set(0, 7.2, -4 - i * 5.5);
+    scene.add(pl);
+  }
 }
 
 /* إضاءة حافية صناعية مميزة تبرز حواف الحديد والأنابيب */
@@ -153,7 +170,7 @@ var slatGeo = (function () {
   sh.moveTo(t / 2, -hh);
   sh.lineTo(t / 2, hh);
   sh.quadraticCurveTo(-t * 1.6, 0, t / 2, -hh);
-  var g = new THREE.ExtrudeGeometry(sh, { depth: W, bevelEnabled: false, curveSegments: 10 });
+  var g = new THREE.ExtrudeGeometry(sh, { depth: W, bevelEnabled: false, curveSegments: isMobile ? 4 : 10 });
   g.translate(0, 0, -W / 2);
   g.rotateY(Math.PI / 2);
   return g;

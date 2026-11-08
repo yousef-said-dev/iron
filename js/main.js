@@ -86,7 +86,7 @@ frame();
 addEventListener('resize', function () {
   if (typeof checkIsMobile === 'function') checkIsMobile();
 
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio, 2));
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
