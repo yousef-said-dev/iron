@@ -255,12 +255,4 @@ function updateScaleItems() {
   dirty = true;
 }
 
-/* التحقق من نقر الميزان بالأشعة */
-function hitScaleAt(x, y) {
-  ndc.x = (x / innerWidth) * 2 - 1;
-  ndc.y = -(y / innerHeight) * 2 + 1;
-  camera.updateMatrixWorld(true);
-  raycaster.setFromCamera(ndc, camera);
-  var hits = raycaster.intersectObjects(scalePickables, true);
-  return hits.length > 0;
-}
+/* ملاحظة: دالة hitScaleAt معرّفة في interaction.js وتدعم الموبايل والديسكتوب */

@@ -115,7 +115,6 @@ function closeFocus() {
     item.scale.copy(home.scale);
     focusedKey = null; focusPhase = null; focusItem = null; focusHome = null;
     unlockScroll();
-    readScroll();
     hintState = -1;
     hoverDirty = true;
     dirty = true;
@@ -192,7 +191,6 @@ function buyFocus() {
 
   focusedKey = null; focusPhase = null; focusItem = null; focusHome = null;
   unlockScroll();
-  readScroll();
   hintState = -1;
   hoverDirty = true;
   dirty = true;
@@ -205,38 +203,36 @@ function buyFocus() {
    سجل حمولة الميزان (قائمة تفاعلية باللغة العربية)
    ===================================================================== */
 function rebuildInventoryRows() {
-  invBody.innerHTML = '';
   var activeKeys = Object.keys(scaleInventory).filter(function (k) {
     return scaleInventory[k] && scaleInventory[k].qty > 0;
   });
 
   if (!activeKeys.length) {
     invContent.innerHTML = '<div class="inv-empty">منصة الميزان فارغة حالياً.<br><span style="font-size:13px;opacity:.7">عاين أي مادة حديدية في المعرض واضغط على <b>شراء ووضع على الميزان</b>.</span></div>';
-    invGrandTotal.textContent = '0.00 كجم';
+    invBody = null;
+    invGrandTotal = null;
     return;
   }
 
-  invContent.innerHTML = '<table class="inv-table"><thead><tr><th>المادة الفولاذية</th><th style="text-align:center">الكمية</th><th>وزن الوحدة</th><th>الوزن الإجمالي</th><th style="text-align:center">حذف</th></tr></thead><tbody id="invBody"></tbody><tfoot><tr class="inv-total-row"><td colspan="3">إجمالي وزن الحمولة القائم:</td><td id="invGrandTotal" style="color:#7dffb0;font-size:16px;font-family:monospace;font-weight:700">0.00 كجم</td><td></td></tr></tfoot></table>';
-  invBody = document.getElementById('invBody');
-  invGrandTotal = document.getElementById('invGrandTotal');
-
+  var rowsHtml = '';
   activeKeys.forEach(function (key) {
     var entry = scaleInventory[key];
     var ukg = UNIT_KG[key] || 0;
     var subTotal = (entry.qty * ukg).toFixed(2);
-    var tr = document.createElement('tr');
-    tr.innerHTML = '<td><b>' + key + '</b></td>' +
+    rowsHtml += '<tr><td><b>' + key + '</b></td>' +
       '<td style="text-align:center"><div class="inv-qty-wrap">' +
       '<button class="inv-qty-btn inv-minus" data-key="' + key + '" type="button" aria-label="تقليل الكمية">−</button>' +
       '<input type="number" min="0" max="99" value="' + entry.qty + '" data-key="' + key + '" inputmode="numeric">' +
       '<button class="inv-qty-btn inv-plus" data-key="' + key + '" type="button" aria-label="زيادة الكمية">+</button>' +
       '</div></td>' +
       '<td>' + ukg.toFixed(1) + ' كجم</td>' +
-      '<td style="font-family:monospace;font-weight:700" class="sub-' + key.replace(/\s+/g, '_') + '">' + subTotal + ' كجم</td>' +
-      '<td style="text-align:center"><button class="inv-remove-btn" data-key="' + key + '" title="إزالة من الميزان">×</button></td>';
-    invBody.appendChild(tr);
+      '<td style="font-family:monospace;font-weight:700" data-sub="' + key + '">' + subTotal + ' كجم</td>' +
+      '<td style="text-align:center"><button class="inv-remove-btn" data-key="' + key + '" title="إزالة من الميزان">×</button></td></tr>';
   });
 
+  invContent.innerHTML = '<table class="inv-table"><thead><tr><th>المادة الفولاذية</th><th style="text-align:center">الكمية</th><th>وزن الوحدة</th><th>الوزن الإجمالي</th><th style="text-align:center">حذف</th></tr></thead><tbody id="invBody">' + rowsHtml + '</tbody><tfoot><tr class="inv-total-row"><td colspan="3">إجمالي وزن الحمولة القائم:</td><td id="invGrandTotal" style="color:#7dffb0;font-size:16px;font-family:monospace;font-weight:700">0.00 كجم</td><td></td></tr></tfoot></table>';
+  invBody = document.getElementById('invBody');
+  invGrandTotal = document.getElementById('invGrandTotal');
   invGrandTotal.textContent = getTotalScaleKg().toFixed(2) + ' كجم';
 }
 
@@ -254,7 +250,6 @@ function closeInventory() {
   invUI.classList.remove('open');
   invUI.setAttribute('aria-hidden', 'true');
   unlockScroll();
-  readScroll();
   hintState = -1;
   hoverDirty = true;
   dirty = true;
@@ -300,7 +295,7 @@ invContent.addEventListener('input', function (e) {
   scaleInventory[key].qty = val;
   updateScaleItems();
   var ukg = UNIT_KG[key] || 0;
-  var subEl = invContent.querySelector('.sub-' + key.replace(/\s+/g, '_'));
+  var subEl = invContent.querySelector('[data-sub="' + key + '"]');
   if (subEl) subEl.textContent = (val * ukg).toFixed(2) + ' كجم';
   invGrandTotal.textContent = getTotalScaleKg().toFixed(2) + ' كجم';
 });
